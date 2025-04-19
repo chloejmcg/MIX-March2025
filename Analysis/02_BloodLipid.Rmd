@@ -12,7 +12,7 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       fig.align = "center",
-                      fig.path = "../Figures/02_BloodLipid")
+                      fig.path = "Figures/02_BloodLipid")
 ```
 
 # Set up the environment!
@@ -42,6 +42,9 @@ Blood was taken from the heart after euthanasia. Due to the size of the birds, t
 mix_lipid_raw <- read.csv("Data/CSVs/lipid-blood-mix.csv")
 
 glimpse(mix_lipid_raw)
+
+source("C:/Users/Chloe/OneDrive - Cornell University/study-1-march25/MIX/Code/colors.R")
+str(treatment_colors)
 
 ```
 
@@ -96,13 +99,17 @@ mix_lipid_labs <- mix_lipid_raw %>%
     labels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")
   ))
 
+# Check treatment levels
+levels(mix_lipid_labs$treatment)
+
 # plot it
 f1 <- ggplot(mix_lipid_labs, aes(x = treatment, y = hdl)) +
-    geom_boxplot(outlier.shape = NA, fill = "gray90") +
-    geom_jitter(width = 0.15, alpha = 0.7, size = 2, aes(color = treatment)) +
-    scale_color_brewer(palette = "Set2") +
+    geom_boxplot(aes(fill = treatment), outlier.shape = NA, color = "black", alpha = 0.5, width = 0.5) +  # Lighter box plot with treatment colors
+    geom_jitter(aes(color = treatment), width = 0.15, alpha = 0.7, size = 2) +
+    scale_color_manual(values = treatment_colors) +  # Use the custom treatment colors
+    scale_fill_manual(values = treatment_colors) +  # Use the custom treatment colors for fill
     theme_minimal(base_size = 14) +
-    expand_limits(y = max(mix_lipid_labs$hdl, na.rm = TRUE) * 1.08) + # gives room for p-value
+    expand_limits(y = max(mix_lipid_labs$hdl, na.rm = TRUE) * 1.08) +
     annotate("text", x = 1, y = max(mix_lipid_labs$hdl, na.rm = TRUE) * 1.05,
              label = hdl_p_text, hjust = 0, size = 4) +
     labs(
@@ -115,7 +122,8 @@ f1 <- ggplot(mix_lipid_labs, aes(x = treatment, y = hdl)) +
         plot.title = element_text(face = "bold", hjust = 0.5),
         axis.title = element_text(face = "bold"),
         axis.text = element_text(size = 12, color = "black"),
-        legend.position = "none"
+        legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1)
     )
 
 f1
@@ -126,11 +134,12 @@ f1
 
 # plot it
 f2 <- ggplot(mix_lipid_labs, aes(x = treatment, y = ldl)) +
-    geom_boxplot(outlier.shape = NA, fill = "gray90") +
-    geom_jitter(width = 0.15, alpha = 0.7, size = 2, aes(color = treatment)) +
-    scale_color_brewer(palette = "Set2") +
+    geom_boxplot(aes(fill = treatment), outlier.shape = NA, color = "black", alpha = 0.5, width = 0.5) +  # Lighter box plot with treatment colors
+    geom_jitter(aes(color = treatment), width = 0.15, alpha = 0.7, size = 2) +
+    scale_color_manual(values = treatment_colors) +  # Use the custom treatment colors
+    scale_fill_manual(values = treatment_colors) +  # Use the custom treatment colors for fill
     theme_minimal(base_size = 14) +
-    expand_limits(y = max(mix_lipid_labs$ldl, na.rm = TRUE) * 1.08) + # gives room for p-value
+    expand_limits(y = max(mix_lipid_labs$ldl, na.rm = TRUE) * 1.08) +
     annotate("text", x = 1, y = max(mix_lipid_labs$ldl, na.rm = TRUE) * 1.05,
              label = ldl_p_text, hjust = 0, size = 4) +
     labs(
@@ -143,7 +152,8 @@ f2 <- ggplot(mix_lipid_labs, aes(x = treatment, y = ldl)) +
         plot.title = element_text(face = "bold", hjust = 0.5),
         axis.title = element_text(face = "bold"),
         axis.text = element_text(size = 12, color = "black"),
-        legend.position = "none"
+        legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1)
     )
 
 f2
@@ -153,13 +163,14 @@ f2
 ```{r treatment-chol}
 # plot it
 f3 <- ggplot(mix_lipid_labs, aes(x = treatment, y = chol)) +
-    geom_boxplot(outlier.shape = NA, fill = "gray90") +
-    geom_jitter(width = 0.15, alpha = 0.7, size = 2, aes(color = treatment)) +
-    scale_color_brewer(palette = "Set2") +
+    geom_boxplot(aes(fill = treatment), outlier.shape = NA, color = "black", alpha = 0.5, width = 0.5) +  # Lighter box plot with treatment colors
+    geom_jitter(aes(color = treatment), width = 0.15, alpha = 0.7, size = 2) +
+    scale_color_manual(values = treatment_colors) +  # Use the custom treatment colors
+    scale_fill_manual(values = treatment_colors) +  # Use the custom treatment colors for fill
     theme_minimal(base_size = 14) +
-    expand_limits(y = max(mix_lipid_labs$chol, na.rm = TRUE) * 1.08) + # gives room for p-value
+    expand_limits(y = max(mix_lipid_labs$chol, na.rm = TRUE) * 1.08) +
     annotate("text", x = 1, y = max(mix_lipid_labs$chol, na.rm = TRUE) * 1.05,
-             label = chol_p_text, hjust = 0, size = 4) +
+             label = hdl_p_text, hjust = 0, size = 4) +
     labs(
         title = "Figure C: Cholesterol Levels by Treatment",
         y = "Cholesterol (mg/dL)",
@@ -170,8 +181,10 @@ f3 <- ggplot(mix_lipid_labs, aes(x = treatment, y = chol)) +
         plot.title = element_text(face = "bold", hjust = 0.5),
         axis.title = element_text(face = "bold"),
         axis.text = element_text(size = 12, color = "black"),
-        legend.position = "none"
+        legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1)
     )
+
 
 f3
 ```
@@ -186,7 +199,11 @@ Let's put it into one three panel graph
 # f3 = cholesterol plot
 
 # Combine horizontally into a 3-panel figure
-(f1 | f2 | f3) + 
+combined_plot <- (f1 | f2 | f3) + 
   plot_annotation(title = "Lipid Profile by Treatment")
+
+combined_plot
+
+ggsave("Figures/02_BLoodLipid/lipid_panel.png", plot = combined_plot, width = 14, height = 5, dpi = 600)
 ```
 
