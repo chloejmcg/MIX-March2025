@@ -1,5 +1,5 @@
 ---
-title: "Duodenum Histology"
+title: "Duodenum Histology Analysis"
 author: "Chloe J McGovern"
 date: "`r Sys.Date()`"
 output:
@@ -12,24 +12,37 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       fig.align = "center",
-                      fig.path = "/Figures/03_DuodenumHistology")
+                      fig.path = "../Figures/03_DuodenumHistology")
 ```
 
 # Duodenum Histology
 
 ## Why do you look at the duodenum under the microscope? 
 
+It gives us a visual way to see what is happening inside the body. During sample preparation, there can be damage that is done so it is important to note of it is a clinical issue or a methodological limitation. 
 
+The duodenum is the first part of the small intestine. In chicks, we find it as a loop with the pancreas in between the two sides. This is important to know because we may see the pancreas depending on how the cross sections are prepared. 
+
+When looking under the microscope there are several things we can measure and look for. Starting at the outer most layer (potentially nect to the pancreas) is the mucularis external layer followed by a thick layer of submucosal muscle tissue, followed by a think layer of muscularis mucosae. The top if this later is where the lamina propria begins, and thus the bottom of the crypt depth measurement. This  is an important measurement when pared with villi height to determine instestinal homeostasis. It can also be called the invagination site if reading through literature and finding misnomers. The villi are also made of lamina propria and have a more complex physiology but that is for a later time. What matters in this analysis is the villi height, width (taken three times and averaged) and we will alcualte surface area using the equation for a cylinder.   
 
 ## Staining: What do we use and what do we see? 
 
+We used PAS (Periodic Acid Schiff-haematoxylin) staining to highlight the goblet cells. Goblet cells can be pink/magenta for neutral pH's and dark blue/purple for acidic pH's. Due to the proximity of the duodenum to the stomach, there tends to be more acidic staining goblet cells most likely because of the acidic nature of the chime leaving the stomach (very acidic). It is important to note that goblet cells themselves are NOT acidic or neutral charged, but rather the mucins they produce are acidic which is where the staining color change happens.  
 
 # Objective:
 
 # Load in data and any other necessities
 
 ```{r set-up}
-pacman::p_load(tidyverse, patchwork, install = FALSE)
+pacman::p_load(tidyverse, ggplot2, dplyr, patchwork, Hmisc, 
+               lme4, lmerTest, emmeans, car, ggsignif, install = FALSE)
+
+#install.packages("Hmisc")
+#install.packages("lme4")
+#install.packages("lmerTest")
+#install.packages("emmeans")
+#install.packages("car")
+#install.packages("ggsignif")
 
 #load times new roman font
 windowsFonts("Times New Roman" = windowsFont("Times New Roman"))
@@ -38,22 +51,878 @@ theme(
     text = element_text(family = "Times New Roman")
 )
 
-lphy_histo <- read.csv("Data/CSVs/mix-histology-duod.csv")
+mix_histo <- read.csv("Data/CSVs/mix-histology-duod.csv")
 
 glimpse(mix_histo)
+
+source("Code/colors.R")
+```
+
+## Prepare column names ahead of time
+
+```{r col-rename}
+mix_histo <- mix_histo %>%
+  mutate(
+    treatment = factor(treatment,
+      levels = c("1", "2", "7", "8", "9"),
+      labels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")
+    )
+  )
+
+#View(mix_histo)
+
 ```
 
 
 # Analysis
 
-## 1. Villis Height
+## 1. Villi Height
 
-## 2. Villis Width
+### Height Plain Graph
+
+```{r villi-height, fig.height=5, fig.width=6}
+
+# violin plot to see the distribution 
+
+height <- ggplot(mix_histo, aes(x = treatment, y = villis_height, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Villi Height",
+    x     = NULL,
+    y     = "Microns (μm)"
+  )
+
+height
+```
+
+### Height Mixed Model
+
+```{r villus-height-lmm}
+#model
+model_height <- lmer(villis_height ~ treatment + (1|biological_rep), data = mix_histo)
+summary(model_height)
+
+#post hoc
+post_hoc_height <- emmeans(model_height, pairwise ~ treatment)
+summary(post_hoc_height)
+
+# Extract p-values for the pairwise comparisons
+p_height <- as.data.frame(post_hoc_height$contrasts)
+p_height
+
+# Filter for significant p-values (adjust the threshold as needed, e.g., p < 0.05)
+significant_p_height <- p_height[p_height$p.value < 0.05, ]
+significant_p_height
+
+
+```
+
+### Height Significant Graph
+
+```{r height-p-value-violin-plot}
+
+p_height <- ggplot(mix_histo, aes(x = treatment, y = villis_height, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "A: Villi Height",
+    x     = NULL,
+    y     = "Microns (μm)"
+  ) +
+  # Add p-value annotations with larger and spaced lines
+  geom_signif(
+    comparisons = list(
+      c("No Injection", "Mix Dose 1"),
+      c("No Injection", "Mix Dose 2"),
+      c("No Injection", "Mix Dose 3"),
+      c("Water", "Mix Dose 1"),
+      c("Water", "Mix Dose 2"),
+      c("Water", "Mix Dose 3"),
+      c("Mix Dose 1", "Mix Dose 2"),
+      c("Mix Dose 1", "Mix Dose 3"),
+      c("Mix Dose 2", "Mix Dose 3")),  # Define treatment pairs
+    map_signif_level = TRUE,  # Automatically adds p-values
+    size = 1,  # Increase the size of the lines for better visibility
+    y_position = c(450, 470, 490, 510, 530, 550, 570, 590, 610)  # Adjust this to position lines further apart
+  )
+
+# Show the updated plot
+p_height
+
+```
+
+### Summary of Villi Height
+
+## 2. Villi Width
+
+### Average Widths and Make New Column
+
+```{r average-villis-width}
+
+mix_histo <-
+  mix_histo %>%
+   mutate(
+    width_avg = rowMeans(select(., villis_width1, villis_width2, villis_width3), 
+                         na.rm = TRUE)
+  )
+
+#View(mix_histo)
+```
+
+### Villi Width No Significance
+
+```{r villi-width, fig.height=5, fig.width=6}
+
+# violin plot to see the distribution 
+
+width <- ggplot(mix_histo, aes(x = treatment, y = width_avg, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Villi Avgerage Width",
+    x     = NULL,
+    y     = "Microns (μm)"
+  )
+
+width
+```
+
+### Width Linear Mixed Model
+
+```{r villis-width-lmm}
+
+#model
+model_width <- lmer(width_avg ~ treatment + (1|biological_rep), data = mix_histo)
+summary(model_width)
+
+#post hoc
+post_hoc_width <- emmeans(model_width, pairwise ~ treatment)
+summary(post_hoc_width)
+
+# Extract p-values for the pairwise comparisons
+p_width <- as.data.frame(post_hoc_width$contrasts)
+p_width
+
+# Filter for significant p-values (adjust the threshold as needed, e.g., p < 0.05)
+significant_p_width <- p_width[p_width$p.value < 0.05, ]
+significant_p_width
+
+```
+
+### Width Plot with Significant P Values
+
+```{r width-p-value-violin-plot}
+
+p_width <- ggplot(mix_histo, aes(x = treatment, y = width_avg, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "B: Villi Average Width",
+    x     = NULL,
+    y     = "Microns (μm)"
+  ) +
+  # Add p-value annotations with larger and spaced lines
+  geom_signif(
+    comparisons = list(
+      c("No Injection", "Water"),
+      c("No Injection", "Mix Dose 1"),
+      c("No Injection", "Mix Dose 2"),
+      c("No Injection", "Mix Dose 3")),  # Define treatment pairs
+    map_signif_level = TRUE,  # Automatically adds p-values
+    size = 1,  # Increase the size of the lines for better visibility
+    y_position = c(80, 90, 100, 110)  # Adjust this to position lines further apart
+  )
+
+# Show the updated plot
+p_width
+```
+
+
+### Summary Villi Width
 
 ## 3. Villus Surface Area
 
+### Calculate Surface Area and Make New Column
+
+```{r new-col-surface-area}
+# check
+nrow(mix_histo)
+# should be 350
+
+colnames(mix_histo)
+# make sure you see "width_avg" and "height" in the names
+
+
+mix_histo <-
+  mix_histo %>%
+  mutate(
+     radius = width_avg / 2,
+    surface_area = 2 * pi * radius^2   # top + bottom
+                 + 2 * pi * radius * villis_height  # lateral
+  )
+
+#View(mix_histo)
+```
+
+### Surface Area Violin Plot No Significance
+
+```{r surface-area, fig.height=5, fig.width=6}
+
+# violin plot to see the distribution 
+
+surface_area <- ggplot(mix_histo, aes(x = treatment, y = surface_area, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Villi Surface Area",
+    x     = NULL,
+    y     = "Surface Area (μm²)"
+  )
+
+surface_area
+```
+
+### Run Mixed Model on Surface Area
+
+```{r surface-area-lmm}
+#model
+model_SA <- lmer(surface_area ~ treatment + (1|biological_rep), data = mix_histo)
+summary(model_SA)
+
+#post hoc
+post_hoc_SA <- emmeans(model_SA, pairwise ~ treatment)
+summary(post_hoc_SA)
+
+# Extract p-values for the pairwise comparisons
+p_SA <- as.data.frame(post_hoc_SA$contrasts)
+p_SA
+
+# Filter for significant p-values (adjust the threshold as needed, e.g., p < 0.05)
+significant_p_SA <- p_SA[p_SA$p.value < 0.05, ]
+significant_p_SA
+
+```
+
+### Violin Plot Suface Area with Significance
+
+```{r SA-violin-plot-p-values}
+
+p_SA <- ggplot(mix_histo, aes(x = treatment, y = surface_area, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "C: Villi Surface Area",
+    x     = NULL,
+    y     = "Surface Area (μm²)"
+  ) +
+  # Add p-value annotations with larger and spaced lines
+  geom_signif(
+    comparisons = list(
+      c("No Injection", "Water"),
+      c("No Injection", "Mix Dose 1"),
+      c("No Injection", "Mix Dose 2"),
+      c("No Injection", "Mix Dose 3"),
+      c("Water", "Mix Dose 1"),
+      c("Water", "Mix Dose 3"),
+      c("Mix Dose 1", "Mix Dose 2"),
+      c("Mix Dose 1", "Mix Dose 3")),  # Define treatment pairs
+    map_signif_level = TRUE,  # Automatically adds p-values
+    size = 1,  # Increase the size of the lines for better visibility
+    y_position = c(80000, 82500, 85000, 87500, 90000, 92500, 95000, 97500)  # Adjust this to position lines further apart
+  )
+
+# Show the updated plot
+p_SA
+```
+
+### Summary Surface Area
+
 ## 4. Crypt Depth
 
-## 5. CD:VS Ratio Graph
+### Crypt Depth on Violin Plot
 
-## 6. Making a publication ready figure
+```{r crypt-depth-figure}
+
+crypt <- ggplot(mix_histo, aes(x = treatment, y = crypt_depth, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Crypt Depth",
+    x     = NULL,
+    y     = "Microns (μm)"
+  )
+
+crypt
+```
+
+### Linear Mixed Model for Crypt Depth
+
+```{r crypt-lmm}
+
+#model
+model_crypt <- lmer(crypt_depth ~ treatment + (1|biological_rep), data = mix_histo)
+summary(model_crypt)
+
+#post hoc
+post_hoc_crypt <- emmeans(model_crypt, pairwise ~ treatment)
+summary(post_hoc_crypt)
+
+# Extract p-values for the pairwise comparisons
+p_crypt <- as.data.frame(post_hoc_crypt$contrasts)
+p_crypt
+
+# Filter for significant p-values (adjust the threshold as needed, e.g., p < 0.05)
+significant_p_crypt <- p_crypt[p_crypt$p.value < 0.05, ]
+significant_p_crypt
+
+```
+
+### Violin Plot Crypt Depth with Significance
+
+```{r crypt-violin-significant}
+p_crypt <- ggplot(mix_histo, aes(x = treatment, y = crypt_depth, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "D: Crypt Depth",
+    x     = NULL,
+    y     = "Microns (μm)"
+  ) +
+  # Add p-value annotations with larger and spaced lines
+  geom_signif(
+    comparisons = list(
+      c("No Injection", "Mix Dose 1"),
+      c("No Injection", "Mix Dose 2"),
+      c("No Injection", "Mix Dose 3"),
+      c("Water", "Mix Dose 1"),
+      c("Water", "Mix Dose 2"),
+      c("Water", "Mix Dose 3"),
+      c("Mix Dose 1", "Mix Dose 2"),
+      c("Mix Dose 1", "Mix Dose 3")),  # Define treatment pairs
+    map_signif_level = TRUE,  # Automatically adds p-values
+    size = 1,  # Increase the size of the lines for better visibility
+    y_position = c(60, 65, 70, 75, 80, 85, 90, 95)  # Adjust this to position lines further apart
+  )
+
+# Show the updated plot
+p_crypt
+```
+
+### Summary Crypt Depth
+
+## 5. VH:CD Ratio Graph
+
+```{r vh-cd-ratio}
+
+mix_histo <-
+  mix_histo %>%
+  mutate(
+    vh_cd = villis_height / crypt_depth
+  )
+
+head(mix_histo$vh_cd)
+```
+
+
+```{r vh-cd-figure}
+
+vh_cd <- ggplot(mix_histo, aes(x = treatment, y = vh_cd, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "E: VH:CD Ratio",
+    x     = NULL,
+    y     = "Ratio (Au)"
+  )
+
+vh_cd
+```
+
+### Linear Mixed Model for Crypt Depth
+
+```{r vh-cd-lmm}
+#model
+model_ratio <- lmer(vh_cd ~ treatment + (1|biological_rep), data = mix_histo)
+summary(model_ratio)
+
+#post hoc
+post_hoc_ratio <- emmeans(model_ratio, pairwise ~ treatment)
+summary(post_hoc_ratio)
+
+# Extract p-values for the pairwise comparisons
+p_ratio <- as.data.frame(post_hoc_ratio$contrasts)
+p_ratio
+
+# Filter for significant p-values (adjust the threshold as needed, e.g., p < 0.05)
+significant_p_ratio <- p_ratio[p_ratio$p.value < 0.05, ]
+significant_p_ratio
+
+```
+
+### Violin Plot of VH-CD Ratio
+
+```{r ratio-violin-significant}
+
+p_ratio <- ggplot(mix_histo, aes(x = treatment, y = vh_cd, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "E: VH:CD Ratio",
+    x     = NULL,
+    y     = "Ratio (Au)"
+  ) +
+  # Add p-value annotations with larger and spaced lines
+  geom_signif(
+    comparisons = list(
+      c("No Injection", "Mix Dose 1"),
+      c("No Injection", "Mix Dose 2"),
+      c("No Injection", "Mix Dose 3"),
+      c("Water", "Mix Dose 1"),
+      c("Water", "Mix Dose 2"),
+      c("Water", "Mix Dose 3")),  # Define treatment pairs
+    map_signif_level = TRUE,  # Automatically adds p-values
+    size = 1,  # Increase the size of the lines for better visibility
+    y_position = c(35, 40, 45, 50, 55, 60)  # Adjust this to position lines further apart
+  )
+
+# Show the updated plot
+p_ratio
+```
+
+### Summary Villus to Crypt Ratio
+
+## 6. Goblet Cell Counts
+
+### Plot Raw values
+```{r violin-goblet}
+goblet <- ggplot(mix_histo, aes(x = treatment, y = goblet_count, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "Goblet Cell Count",
+    x     = NULL,
+    y     = "Count"
+  )
+
+goblet
+```
+
+### Linear Mixed Model Goblet
+
+```{r goblet-lmm}
+#model
+model_goblet <- lmer(goblet_count ~ treatment + (1|biological_rep), data = mix_histo)
+summary(model_goblet)
+
+#post hoc
+post_hoc_goblet <- emmeans(model_goblet, pairwise ~ treatment)
+summary(post_hoc_goblet)
+
+# Extract p-values for the pairwise comparisons
+p_goblet <- as.data.frame(post_hoc_goblet$contrasts)
+p_goblet
+
+# Filter for significant p-values (adjust the threshold as needed, e.g., p < 0.05)
+significant_p_goblet <- p_goblet[p_goblet$p.value < 0.05, ]
+significant_p_goblet
+
+```
+
+### Violin Plot Goblet Cells with Significance
+
+```{r violin-goblet-significant}
+
+p_goblet <- ggplot(mix_histo, aes(x = treatment, y = goblet_count, fill = treatment)) +
+  # full violin
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black") +
+  # overlay individual points
+  geom_jitter(aes(color = treatment),
+              width = 0.1, size = 1.5, alpha = 0.6) +
+  # optional: show median + IQR
+  stat_summary(fun = median, geom = "point",
+               size = 2, color = "white") +
+  stat_summary(fun.data = median_hilow, geom = "errorbar",
+               width = 0.1, color = "white") +
+  # apply your custom palette
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  # minimal theme + Times New Roman
+  theme_minimal(base_size = 14) +
+  theme(
+    text            = element_text(family = "Times New Roman"),
+    axis.text.x     = element_text(angle = 45, hjust = 1),
+    plot.title      = element_text(face = "bold", hjust = 0.5),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "F: Goblet Cell Count",
+    x     = NULL,
+    y     = "Count"
+  ) +
+  # Add p-value annotations with larger and spaced lines
+  geom_signif(
+    comparisons = list(
+      c("No Injection", "Mix Dose 1"),
+      c("No Injection", "Mix Dose 2"),
+      c("No Injection", "Mix Dose 3"),
+      c("Water", "Mix Dose 1"),
+      c("Water", "Mix Dose 2"),
+      c("Water", "Mix Dose 3"),
+      c("Mix Dose 1", "Mix Dose 3"),
+      c("Mix Dose 2", "Mix Dose 3")),  # Define treatment pairs
+    map_signif_level = TRUE,  # Automatically adds p-values
+    size = 1,  # Increase the size of the lines for better visibility
+    y_position = c(125, 135, 145, 155, 165, 175, 185, 195)  # Adjust this to position lines further apart
+  )
+
+# Show the updated plot
+p_goblet
+```
+
+## 7. Making a publication ready figure
+
+```{r pub-ready-figures}
+
+# just figures no significance
+raw <- (height | width | crypt ) +
+  plot_annotation(title = "Histological Analysis of Duodenum")
+
+raw
+  
+calculated <- (surface_area | vh_cd | goblet) +
+  plot_annotation(title = "Histological Analysis of Duodenum")
+
+calculated
+
+# with p - values
+
+p_raw <- (p_height | p_width | p_crypt ) +
+  plot_annotation(title = "Histological Analysis of Duodenum")
+  
+p_raw
+
+p_calculated <- (p_SA | p_ratio | p_goblet) +
+  plot_annotation(title = "Histological Analysis of Duodenum")
+
+p_calculated
+
+all_p <- (p_height | p_width | p_SA) / (p_crypt | p_ratio | p_goblet)
+
+all_p #this is a master piece if I do say so myself :) 
+
+ggsave("C:/Users/Chloe/OneDrive - Cornell University/study-1-march25/MIX/Figures/03_DuodenumHistology/all-p-value-plots.png", plot = all_p, width = 14, height = 14, dpi = 600)
+
+```
+
+# Assumptions
+
+```{r assumptions}
+
+# height 
+# Residuals vs Fitted plot to check linearity
+plot(model_height, which = 1) # YAY looks good
+
+# Q-Q plot to check normality of residuals
+qqnorm(resid(model_height))
+qqline(resid(model_height)) # there is some deviation at the tails, i think it is ok
+
+# Residuals vs Fitted plot to check homoscedasticity
+plot(model_height, which = 1)
+
+# Check residuals for autocorrelation
+acf(resid(model_height)) # there is no pattern for homoscedasticity
+
+# width
+
+plot(model_width, which = 1) # YAY looks good
+
+# Q-Q plot to check normality of residuals
+qqnorm(resid(model_width))
+qqline(resid(model_width)) # there is some deviation at the tails, i think it is ok
+
+# Residuals vs Fitted plot to check homoscedasticity
+plot(model_width, which = 1)
+
+# Check residuals for autocorrelation
+acf(resid(model_width)) # there is no pattern for homoscedasticity
+
+# SA
+
+plot(model_SA, which = 1) # YAY looks good
+
+# Q-Q plot to check normality of residuals
+qqnorm(resid(model_SA))
+qqline(resid(model_SA)) # there is some deviation at the tails, i think it is ok
+
+# Residuals vs Fitted plot to check homoscedasticity
+plot(model_height, which = 1)
+
+# Check residuals for autocorrelation
+acf(resid(model_height)) # there is no pattern for homoscedasticity
+
+# ratio
+
+plot(model_ratio, which = 1) # YAY looks good
+
+# Q-Q plot to check normality of residuals
+qqnorm(resid(model_ratio))
+qqline(resid(model_ratio)) # there is some deviation at the tails, i think it is ok
+
+# Residuals vs Fitted plot to check homoscedasticity
+plot(model_height, which = 1)
+
+# Check residuals for autocorrelation
+acf(resid(model_ratio)) # there is no pattern for homoscedasticity
+
+# crypt
+
+plot(model_crypt, which = 1) # YAY looks good
+
+# Q-Q plot to check normality of residuals
+qqnorm(resid(model_crypt))
+qqline(resid(model_crypt)) # there is some deviation at the tails, i think it is ok
+
+# Residuals vs Fitted plot to check homoscedasticity
+plot(model_crypt, which = 1)
+
+# Check residuals for autocorrelation
+acf(resid(model_crypt)) # there is no pattern for homoscedasticity
+
+# goblet
+
+plot(model_goblet, which = 1) # YAY looks good
+
+# Q-Q plot to check normality of residuals
+qqnorm(resid(model_goblet))
+qqline(resid(model_goblet)) # there is some deviation at the tails, i think it is ok
+
+# Residuals vs Fitted plot to check homoscedasticity
+plot(model_goblet, which = 1)
+
+# Check residuals for autocorrelation
+acf(resid(model_goblet)) # there is no pattern for homoscedasticity
+
+```
+
