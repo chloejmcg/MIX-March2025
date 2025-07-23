@@ -1,0 +1,625 @@
+﻿Tissue,Treatment,Sample,Gene,Rep1,Rep2
+Duodenum,No Injection,1,GAPDH,19.5,19.51
+Duodenum,No Injection,2,GAPDH,18.94,19.02
+Duodenum,No Injection,3,GAPDH,20.98,20.94
+Duodenum,No Injection,4,GAPDH,20.63,20.58
+Duodenum,No Injection,5,GAPDH,20.21,19.96
+Duodenum,No Injection,6,GAPDH,20.69,19.87
+Duodenum,No Injection,7,GAPDH,20.42,20.27
+Duodenum,No Injection,8,GAPDH,21.19,21.02
+Duodenum,Water,1,GAPDH,19.42,19.52
+Duodenum,Water,2,GAPDH,19.24,19.99
+Duodenum,Water,3,GAPDH,19.45,19.78
+Duodenum,Water,4,GAPDH,20.89,20.27
+Duodenum,Water,5,GAPDH,21.16,21.05
+Duodenum,Water,6,GAPDH,20.34,19.44
+Duodenum,Water,7,GAPDH,21.29,21.29
+Duodenum,Mix Dose 1,1,GAPDH,20.09,21.54
+Duodenum,Mix Dose 1,2,GAPDH,21.64,20.46
+Duodenum,Mix Dose 1,3,GAPDH,21.17,21.2
+Duodenum,Mix Dose 1,4,GAPDH,19.32,19.31
+Duodenum,Mix Dose 1,5,GAPDH,20.09,20.31
+Duodenum,Mix Dose 1,6,GAPDH,21.06,20.61
+Duodenum,Mix Dose 1,7,GAPDH,19.59,19.75
+Duodenum,Mix Dose 1,8,GAPDH,19.32,19.3
+Duodenum,Mix Dose 2,1,GAPDH,20.53,20.55
+Duodenum,Mix Dose 2,2,GAPDH,20.55,20.33
+Duodenum,Mix Dose 2,3,GAPDH,19.58,20.15
+Duodenum,Mix Dose 2,4,GAPDH,20.8,20.13
+Duodenum,Mix Dose 2,5,GAPDH,20.9,19.6
+Duodenum,Mix Dose 2,6,GAPDH,20.5,20.7
+Duodenum,Mix Dose 2,7,GAPDH,21.83,21.65
+Duodenum,Mix Dose 2,8,GAPDH,20.89,20.79
+Duodenum,Mix Dose 3,1,GAPDH,21.72,21.32
+Duodenum,Mix Dose 3,2,GAPDH,19.19,19.84
+Duodenum,Mix Dose 3,3,GAPDH,20.53,20.89
+Duodenum,Mix Dose 3,4,GAPDH,21.43,21.85
+Duodenum,Mix Dose 3,5,GAPDH,21.34,21.79
+Duodenum,Mix Dose 3,6,GAPDH,21.7,21.31
+Duodenum,Mix Dose 3,7,GAPDH,20.96,21.11
+Duodenum,Mix Dose 3,8,GAPDH,20.86,20.05
+Duodenum,No Injection,1,OCLN,23.97,24.02
+Duodenum,No Injection,2,OCLN,23.67,23.64
+Duodenum,No Injection,3,OCLN,23.79,23.74
+Duodenum,No Injection,4,OCLN,23.66,23.95
+Duodenum,No Injection,5,OCLN,23.08,23.12
+Duodenum,No Injection,6,OCLN,24.07,24.07
+Duodenum,No Injection,7,OCLN,23.53,23.58
+Duodenum,No Injection,8,OCLN,24.69,24.16
+Duodenum,Water,1,OCLN,24.43,24.46
+Duodenum,Water,2,OCLN,24.18,24.5
+Duodenum,Water,3,OCLN,24.76,24.94
+Duodenum,Water,4,OCLN,23.7,23.55
+Duodenum,Water,5,OCLN,24.48,24.04
+Duodenum,Water,6,OCLN,23.35,22.92
+Duodenum,Water,7,OCLN,24.12,24.41
+Duodenum,Mix Dose 1,1,OCLN,24.3,24.39
+Duodenum,Mix Dose 1,2,OCLN,23.78,23.68
+Duodenum,Mix Dose 1,3,OCLN,24.97,24.67
+Duodenum,Mix Dose 1,4,OCLN,25.74,25.55
+Duodenum,Mix Dose 1,5,OCLN,24.2,24.03
+Duodenum,Mix Dose 1,6,OCLN,24.77,24.76
+Duodenum,Mix Dose 1,7,OCLN,23.2,23.24
+Duodenum,Mix Dose 1,8,OCLN,23.68,23.74
+Duodenum,Mix Dose 2,1,OCLN,25.8,25.8
+Duodenum,Mix Dose 2,2,OCLN,25.6,25.42
+Duodenum,Mix Dose 2,3,OCLN,23.47,24.14
+Duodenum,Mix Dose 2,4,OCLN,25.72,25.57
+Duodenum,Mix Dose 2,5,OCLN,24.22,24.97
+Duodenum,Mix Dose 2,6,OCLN,23.17,23.23
+Duodenum,Mix Dose 2,7,OCLN,25.31,25.31
+Duodenum,Mix Dose 2,8,OCLN,25.03,24.74
+Duodenum,Mix Dose 3,1,OCLN,23.51,23.94
+Duodenum,Mix Dose 3,2,OCLN,24.09,23.66
+Duodenum,Mix Dose 3,3,OCLN,23.17,22.85
+Duodenum,Mix Dose 3,4,OCLN,23.81,23.79
+Duodenum,Mix Dose 3,5,OCLN,23.78,23.94
+Duodenum,Mix Dose 3,6,OCLN,23.79,23.78
+Duodenum,Mix Dose 3,7,OCLN,23.64,23.58
+Duodenum,Mix Dose 3,8,OCLN,23.72,23.85
+Duodenum,No Injection,1,MUC2,21.01,21.11
+Duodenum,No Injection,2,MUC2,21.26,21.35
+Duodenum,No Injection,3,MUC2,21.41,21.45
+Duodenum,No Injection,4,MUC2,20.81,20.72
+Duodenum,No Injection,5,MUC2,20.36,20.53
+Duodenum,No Injection,6,MUC2,20.94,20.86
+Duodenum,No Injection,7,MUC2,21.01,21.32
+Duodenum,No Injection,8,MUC2,20.75,21.55
+Duodenum,Water,1,MUC2,21.55,20.87
+Duodenum,Water,2,MUC2,21.48,21.26
+Duodenum,Water,3,MUC2,21.9,21.81
+Duodenum,Water,4,MUC2,21.4,21.19
+Duodenum,Water,5,MUC2,21.18,21.13
+Duodenum,Water,6,MUC2,20.18,20.13
+Duodenum,Water,7,MUC2,21.6,21.66
+Duodenum,Mix Dose 1,1,MUC2,22.2,22.11
+Duodenum,Mix Dose 1,2,MUC2,21.83,21.72
+Duodenum,Mix Dose 1,3,MUC2,22.45,22.45
+Duodenum,Mix Dose 1,4,MUC2,21.32,21.44
+Duodenum,Mix Dose 1,5,MUC2,22.64,22.18
+Duodenum,Mix Dose 1,6,MUC2,22.07,21.95
+Duodenum,Mix Dose 1,7,MUC2,21.74,21.38
+Duodenum,Mix Dose 1,8,MUC2,21.04,20.93
+Duodenum,Mix Dose 2,1,MUC2,22.34,22.27
+Duodenum,Mix Dose 2,2,MUC2,23.75,23.73
+Duodenum,Mix Dose 2,3,MUC2,22.42,22.41
+Duodenum,Mix Dose 2,4,MUC2,23.2,23.19
+Duodenum,Mix Dose 2,5,MUC2,23.26,23.25
+Duodenum,Mix Dose 2,6,MUC2,23.42,23.33
+Duodenum,Mix Dose 2,7,MUC2,24.3,24.18
+Duodenum,Mix Dose 2,8,MUC2,23.13,23.08
+Duodenum,Mix Dose 3,1,MUC2,22.74,22.62
+Duodenum,Mix Dose 3,2,MUC2,22.04,22.96
+Duodenum,Mix Dose 3,3,MUC2,22.34,22.78
+Duodenum,Mix Dose 3,4,MUC2,22.34,22.78
+Duodenum,Mix Dose 3,5,MUC2,22.68,22.38
+Duodenum,Mix Dose 3,6,MUC2,22.51,22.44
+Duodenum,Mix Dose 3,7,MUC2,22.14,22.11
+Duodenum,Mix Dose 3,8,MUC2,22.75,22.79
+Duodenum,No Injection,1,TNF-alpha,24.19,24.28
+Duodenum,No Injection,2,TNF-alpha,24.19,24.16
+Duodenum,No Injection,3,TNF-alpha,23.73,23.63
+Duodenum,No Injection,4,TNF-alpha,24.53,24.34
+Duodenum,No Injection,5,TNF-alpha,24.26,24.43
+Duodenum,No Injection,6,TNF-alpha,23.57,23.78
+Duodenum,No Injection,7,TNF-alpha,24.41,24.22
+Duodenum,No Injection,8,TNF-alpha,24.3,24.32
+Duodenum,Water,1,TNF-alpha,24.18,24.08
+Duodenum,Water,2,TNF-alpha,25.11,25.38
+Duodenum,Water,3,TNF-alpha,25.43,25.49
+Duodenum,Water,4,TNF-alpha,24.56,24.89
+Duodenum,Water,5,TNF-alpha,24.73,24.84
+Duodenum,Water,6,TNF-alpha,23.63,23.59
+Duodenum,Water,7,TNF-alpha,24.85,24.8
+Duodenum,Mix Dose 1,1,TNF-alpha,24.03,24.02
+Duodenum,Mix Dose 1,2,TNF-alpha,23.52,23.68
+Duodenum,Mix Dose 1,3,TNF-alpha,25.63,25.75
+Duodenum,Mix Dose 1,4,TNF-alpha,27.18,27.18
+Duodenum,Mix Dose 1,5,TNF-alpha,25.9,25.69
+Duodenum,Mix Dose 1,6,TNF-alpha,26.52,26.06
+Duodenum,Mix Dose 1,7,TNF-alpha,24.06,23.87
+Duodenum,Mix Dose 1,8,TNF-alpha,24.16,24.15
+Duodenum,Mix Dose 2,1,TNF-alpha,29.22,27.37
+Duodenum,Mix Dose 2,2,TNF-alpha,26.22,26.45
+Duodenum,Mix Dose 2,3,TNF-alpha,23.47,23.77
+Duodenum,Mix Dose 2,4,TNF-alpha,26.66,26.85
+Duodenum,Mix Dose 2,5,TNF-alpha,26.16,26.28
+Duodenum,Mix Dose 2,6,TNF-alpha,25.75,25.93
+Duodenum,Mix Dose 2,7,TNF-alpha,28.08,28.31
+Duodenum,Mix Dose 2,8,TNF-alpha,26.05,25.64
+Duodenum,Mix Dose 3,1,TNF-alpha,25.72,25.71
+Duodenum,Mix Dose 3,2,TNF-alpha,25.68,25.33
+Duodenum,Mix Dose 3,3,TNF-alpha,24.62,24.12
+Duodenum,Mix Dose 3,4,TNF-alpha,24.25,24.56
+Duodenum,Mix Dose 3,5,TNF-alpha,25.51,25.67
+Duodenum,Mix Dose 3,6,TNF-alpha,24.97,24.42
+Duodenum,Mix Dose 3,7,TNF-alpha,25.12,25.09
+Duodenum,Mix Dose 3,8,TNF-alpha,24.4,24.43
+Colon,No Injection,1,GAPDH,20.05,20.32
+Colon,No Injection,2,GAPDH,20.55,20.7
+Colon,No Injection,3,GAPDH,20.95,20.38
+Colon,No Injection,4,GAPDH,20.32,20.53
+Colon,No Injection,5,GAPDH,21.82,21.58
+Colon,No Injection,6,GAPDH,20.24,20.53
+Colon,No Injection,7,GAPDH,21.36,20.85
+Colon,No Injection,8,GAPDH,21.68,21.51
+Colon,Water,1,GAPDH,21.59,21.99
+Colon,Water,2,GAPDH,20.71,20.07
+Colon,Water,3,GAPDH,20.15,20.38
+Colon,Water,4,GAPDH,21.23,21.12
+Colon,Water,5,GAPDH,22.39,21.98
+Colon,Water,6,GAPDH,22.33,22.01
+Colon,Water,7,GAPDH,20.87,21.11
+Colon,Mix Dose 1,1,GAPDH,19.97,20.24
+Colon,Mix Dose 1,2,GAPDH,20.36,19.29
+Colon,Mix Dose 1,3,GAPDH,19.86,19.82
+Colon,Mix Dose 1,4,GAPDH,18.34,19.06
+Colon,Mix Dose 1,5,GAPDH,21.15,21.33
+Colon,Mix Dose 1,6,GAPDH,19.67,20.87
+Colon,Mix Dose 1,7,GAPDH,20.36,20.01
+Colon,Mix Dose 1,8,GAPDH,19.7,19.56
+Colon,Mix Dose 2,1,GAPDH,20.29,20.25
+Colon,Mix Dose 2,2,GAPDH,20.22,20.35
+Colon,Mix Dose 2,3,GAPDH,19.29,19.26
+Colon,Mix Dose 2,4,GAPDH,21.38,21.34
+Colon,Mix Dose 2,5,GAPDH,21.7,20.19
+Colon,Mix Dose 2,6,GAPDH,20.45,20.57
+Colon,Mix Dose 2,7,GAPDH,20.98,20.88
+Colon,Mix Dose 2,8,GAPDH,20.72,20.73
+Colon,Mix Dose 3,1,GAPDH,21.76,21.29
+Colon,Mix Dose 3,2,GAPDH,20.45,20.39
+Colon,Mix Dose 3,3,GAPDH,20.7,20.96
+Colon,Mix Dose 3,4,GAPDH,20.64,20.33
+Colon,Mix Dose 3,5,GAPDH,20.74,21.6
+Colon,Mix Dose 3,6,GAPDH,20.57,20.17
+Colon,Mix Dose 3,7,GAPDH,20.33,20.22
+Colon,Mix Dose 3,8,GAPDH,20.84,21.03
+Colon,No Injection,1,MUC2,22.38,22.27
+Colon,No Injection,2,MUC2,21.45,21.8
+Colon,No Injection,3,MUC2,22.19,21.96
+Colon,No Injection,4,MUC2,21.1,21.28
+Colon,No Injection,5,MUC2,22.46,22.53
+Colon,No Injection,6,MUC2,23.38,23.36
+Colon,No Injection,7,MUC2,21.41,21.2
+Colon,No Injection,8,MUC2,20.9,21.25
+Colon,Water,1,MUC2,22.3,22.11
+Colon,Water,2,MUC2,23.9,23.57
+Colon,Water,3,MUC2,23.46,23.2
+Colon,Water,4,MUC2,23.33,23.12
+Colon,Water,5,MUC2,24.1,23.57
+Colon,Water,6,MUC2,23.08,22.92
+Colon,Water,7,MUC2,22.82,23.08
+Colon,Mix Dose 1,1,MUC2,21.2,21.21
+Colon,Mix Dose 1,2,MUC2,23.02,22.44
+Colon,Mix Dose 1,3,MUC2,20.97,21.22
+Colon,Mix Dose 1,4,MUC2,21.55,21.42
+Colon,Mix Dose 1,5,MUC2,21.4,22.28
+Colon,Mix Dose 1,6,MUC2,21.47,21.46
+Colon,Mix Dose 1,7,MUC2,20.61,20.46
+Colon,Mix Dose 1,8,MUC2,21.49,21.23
+Colon,Mix Dose 2,1,MUC2,22.82,22.71
+Colon,Mix Dose 2,2,MUC2,20.23,20.29
+Colon,Mix Dose 2,3,MUC2,18.2,18.21
+Colon,Mix Dose 2,4,MUC2,22.04,22.29
+Colon,Mix Dose 2,5,MUC2,22.38,22.4
+Colon,Mix Dose 2,6,MUC2,20.71,20.71
+Colon,Mix Dose 2,7,MUC2,20.86,20.26
+Colon,Mix Dose 2,8,MUC2,19.85,20.13
+Colon,Mix Dose 3,1,MUC2,25.4,26.27
+Colon,Mix Dose 3,2,MUC2,22.76,22.6
+Colon,Mix Dose 3,3,MUC2,22.82,23.03
+Colon,Mix Dose 3,4,MUC2,23.21,23.65
+Colon,Mix Dose 3,5,MUC2,22.21,22.64
+Colon,Mix Dose 3,6,MUC2,22.47,22.01
+Colon,Mix Dose 3,7,MUC2,23.81,23.61
+Colon,Mix Dose 3,8,MUC2,23.94,23.44
+Colon,No Injection,1,OCLN,23.29,23.16
+Colon,No Injection,2,OCLN,22.81,22.81
+Colon,No Injection,3,OCLN,23.87,24.02
+Colon,No Injection,4,OCLN,22.92,22.92
+Colon,No Injection,5,OCLN,22.1,22.31
+Colon,No Injection,6,OCLN,22.42,22.28
+Colon,No Injection,7,OCLN,22.1,22.12
+Colon,No Injection,8,OCLN,23.34,23.47
+Colon,Water,1,OCLN,24.56,24.58
+Colon,Water,2,OCLN,24.18,24.18
+Colon,Water,3,OCLN,23.15,25.54
+Colon,Water,4,OCLN,24.62,24.51
+Colon,Water,5,OCLN,25.54,25.64
+Colon,Water,6,OCLN,24.99,24.98
+Colon,Water,7,OCLN,24.52,24.44
+Colon,Mix Dose 1,1,OCLN,23.53,23.67
+Colon,Mix Dose 1,2,OCLN,23.04,23.18
+Colon,Mix Dose 1,3,OCLN,24.32,24.14
+Colon,Mix Dose 1,4,OCLN,22.71,23.01
+Colon,Mix Dose 1,5,OCLN,24.62,24.55
+Colon,Mix Dose 1,6,OCLN,23.55,23.68
+Colon,Mix Dose 1,7,OCLN,23.05,23.28
+Colon,Mix Dose 1,8,OCLN,23.74,24.14
+Colon,Mix Dose 2,1,OCLN,23.91,24.02
+Colon,Mix Dose 2,2,OCLN,22.8,23.02
+Colon,Mix Dose 2,3,OCLN,21.39,21.5
+Colon,Mix Dose 2,4,OCLN,24.14,24.1
+Colon,Mix Dose 2,5,OCLN,25.12,25.22
+Colon,Mix Dose 2,6,OCLN,22.84,22.76
+Colon,Mix Dose 2,7,OCLN,23.14,22.86
+Colon,Mix Dose 2,8,OCLN,22.67,22.75
+Colon,Mix Dose 3,1,OCLN,24.03,23.97
+Colon,Mix Dose 3,2,OCLN,26.2,26.13
+Colon,Mix Dose 3,3,OCLN,25.55,26.02
+Colon,Mix Dose 3,4,OCLN,25.02,23.38
+Colon,Mix Dose 3,5,OCLN,24.65,24.08
+Colon,Mix Dose 3,6,OCLN,24.09,22.92
+Colon,Mix Dose 3,7,OCLN,23.39,23.73
+Colon,Mix Dose 3,8,OCLN,26.4,26.89
+Colon,No Injection,1,TNF-alpha,25.16,24.94
+Colon,No Injection,2,TNF-alpha,25.02,25.01
+Colon,No Injection,3,TNF-alpha,25.08,25.03
+Colon,No Injection,4,TNF-alpha,24.45,24.71
+Colon,No Injection,5,TNF-alpha,24.62,24.63
+Colon,No Injection,6,TNF-alpha,24.16,23.36
+Colon,No Injection,7,TNF-alpha,24.93,25.19
+Colon,No Injection,8,TNF-alpha,27.07,26.01
+Colon,Water,1,TNF-alpha,25.09,25.52
+Colon,Water,2,TNF-alpha,25.02,25.01
+Colon,Water,3,TNF-alpha,25.67,25.51
+Colon,Water,4,TNF-alpha,25.39,24.96
+Colon,Water,5,TNF-alpha,25.35,26.79
+Colon,Water,6,TNF-alpha,25.98,24.79
+Colon,Water,7,TNF-alpha,25.98,24.79
+Colon,Mix Dose 1,1,TNF-alpha,26.04,26.21
+Colon,Mix Dose 1,2,TNF-alpha,26.53,26.15
+Colon,Mix Dose 1,3,TNF-alpha,25.44,25.49
+Colon,Mix Dose 1,4,TNF-alpha,24.92,25.01
+Colon,Mix Dose 1,5,TNF-alpha,24.46,24.63
+Colon,Mix Dose 1,6,TNF-alpha,25.95,25.83
+Colon,Mix Dose 1,7,TNF-alpha,24.81,24.51
+Colon,Mix Dose 1,8,TNF-alpha,25.33,25.4
+Colon,Mix Dose 2,1,TNF-alpha,26.74,26.56
+Colon,Mix Dose 2,2,TNF-alpha,26.67,26.88
+Colon,Mix Dose 2,3,TNF-alpha,24.37,24.22
+Colon,Mix Dose 2,4,TNF-alpha,25.39,26.17
+Colon,Mix Dose 2,5,TNF-alpha,27.39,27.48
+Colon,Mix Dose 2,6,TNF-alpha,25.02,25.1
+Colon,Mix Dose 2,7,TNF-alpha,26.18,26.06
+Colon,Mix Dose 2,8,TNF-alpha,26.07,25.85
+Colon,Mix Dose 3,1,TNF-alpha,27.41,27.91
+Colon,Mix Dose 3,2,TNF-alpha,28.19,28.24
+Colon,Mix Dose 3,3,TNF-alpha,26.81,26.54
+Colon,Mix Dose 3,4,TNF-alpha,27.53,27.85
+Colon,Mix Dose 3,5,TNF-alpha,26.75,26.35
+Colon,Mix Dose 3,6,TNF-alpha,27.4,27.53
+Colon,Mix Dose 3,7,TNF-alpha,26.47,26.28
+Colon,Mix Dose 3,8,TNF-alpha,27.25,27.11
+Pectoral,No Injection,1,mTOR,25.56,25.24
+Pectoral,No Injection,2,mTOR,26.12,25.4
+Pectoral,No Injection,3,mTOR,24.88,24.34
+Pectoral,No Injection,4,mTOR,23.81,23.47
+Pectoral,No Injection,5,mTOR,28.04,27.53
+Pectoral,No Injection,6,mTOR,22.9,23.69
+Pectoral,No Injection,7,mTOR,25.85,25.97
+Pectoral,No Injection,8,mTOR,26.26,25.33
+Pectoral,Water,1,mTOR,26.53,25.52
+Pectoral,Water,2,mTOR,25.61,24.97
+Pectoral,Water,3,mTOR,26.17,26.62
+Pectoral,Water,4,mTOR,26.54,26.4
+Pectoral,Water,5,mTOR,25.67,26.01
+Pectoral,Water,6,mTOR,26.39,26.12
+Pectoral,Water,7,mTOR,26.9,26.43
+Pectoral,Mix Dose 1,1,mTOR,24.86,24.86
+Pectoral,Mix Dose 1,2,mTOR,25.07,25.35
+Pectoral,Mix Dose 1,3,mTOR,25.26,25.06
+Pectoral,Mix Dose 1,4,mTOR,25.67,25.34
+Pectoral,Mix Dose 1,5,mTOR,24.94,24.86
+Pectoral,Mix Dose 1,6,mTOR,25.02,25.66
+Pectoral,Mix Dose 1,7,mTOR,24,24.65
+Pectoral,Mix Dose 1,8,mTOR,22.97,23.57
+Pectoral,Mix Dose 2,1,mTOR,24.29,23.7
+Pectoral,Mix Dose 2,2,mTOR,25.41,24.84
+Pectoral,Mix Dose 2,3,mTOR,25.29,25.63
+Pectoral,Mix Dose 2,4,mTOR,24.82,24.42
+Pectoral,Mix Dose 2,5,mTOR,22.58,22.77
+Pectoral,Mix Dose 2,6,mTOR,24.45,24.75
+Pectoral,Mix Dose 2,7,mTOR,26.07,26.42
+Pectoral,Mix Dose 2,8,mTOR,24.62,24.65
+Pectoral,Mix Dose 3,1,mTOR,25.83,25.86
+Pectoral,Mix Dose 3,2,mTOR,24.32,24.35
+Pectoral,Mix Dose 3,3,mTOR,24,23.61
+Pectoral,Mix Dose 3,4,mTOR,24.46,24.46
+Pectoral,Mix Dose 3,5,mTOR,25.22,25.39
+Pectoral,Mix Dose 3,6,mTOR,25.41,25.09
+Pectoral,Mix Dose 3,7,mTOR,23.61,24.2
+Pectoral,Mix Dose 3,8,mTOR,25.65,25.27
+Pectoral,No Injection,1,GAPDH,26.71,27.06
+Pectoral,No Injection,2,GAPDH,26.77,27.03
+Pectoral,No Injection,3,GAPDH,27.3,27.21
+Pectoral,No Injection,4,GAPDH,24.89,24.07
+Pectoral,No Injection,5,GAPDH,25.37,25.54
+Pectoral,No Injection,6,GAPDH,26.44,26.25
+Pectoral,No Injection,7,GAPDH,25.9,25.92
+Pectoral,No Injection,8,GAPDH,26.27,25.35
+Pectoral,Water,1,GAPDH,26.63,26.2
+Pectoral,Water,2,GAPDH,25.52,26.17
+Pectoral,Water,3,GAPDH,27.82,27.5
+Pectoral,Water,4,GAPDH,27.19,27.7
+Pectoral,Water,5,GAPDH,26.08,26.31
+Pectoral,Water,6,GAPDH,26.1,26.08
+Pectoral,Water,7,GAPDH,26.58,26.63
+Pectoral,Mix Dose 1,1,GAPDH,26.94,25.7
+Pectoral,Mix Dose 1,2,GAPDH,25.43,25.64
+Pectoral,Mix Dose 1,3,GAPDH,26.38,25.77
+Pectoral,Mix Dose 1,4,GAPDH,26.16,26.08
+Pectoral,Mix Dose 1,5,GAPDH,25.96,25.7
+Pectoral,Mix Dose 1,6,GAPDH,26.19,26.97
+Pectoral,Mix Dose 1,7,GAPDH,25.77,25.45
+Pectoral,Mix Dose 1,8,GAPDH,25.36,25.49
+Pectoral,Mix Dose 2,1,GAPDH,22.07,21.92
+Pectoral,Mix Dose 2,2,GAPDH,16.13,16.29
+Pectoral,Mix Dose 2,3,GAPDH,14.65,15.03
+Pectoral,Mix Dose 2,4,GAPDH,13.11,15.1
+Pectoral,Mix Dose 2,5,GAPDH,15.09,15.19
+Pectoral,Mix Dose 2,6,GAPDH,15,14.85
+Pectoral,Mix Dose 2,7,GAPDH,16.04,16.16
+Pectoral,Mix Dose 2,8,GAPDH,15.38,15.06
+Pectoral,Mix Dose 3,1,GAPDH,15.83,15.99
+Pectoral,Mix Dose 3,2,GAPDH,14.15,14.44
+Pectoral,Mix Dose 3,3,GAPDH,13.71,13.74
+Pectoral,Mix Dose 3,4,GAPDH,15.34,15.22
+Pectoral,Mix Dose 3,5,GAPDH,15.69,15.72
+Pectoral,Mix Dose 3,6,GAPDH,16.1,16.33
+Pectoral,Mix Dose 3,7,GAPDH,14.93,14.6
+Pectoral,Mix Dose 3,8,GAPDH,15.51,15.73
+Liver,No Injection,1,GAPDH,20.07,20.71
+Liver,No Injection,2,GAPDH,20.27,20.42
+Liver,No Injection,3,GAPDH,19.22,19
+Liver,No Injection,4,GAPDH,18.86,19.26
+Liver,No Injection,5,GAPDH,19.25,19.06
+Liver,No Injection,6,GAPDH,19.29,19.18
+Liver,No Injection,7,GAPDH,18.35,18.12
+Liver,No Injection,8,GAPDH,18.29,18.39
+Liver,Water,1,GAPDH,19.75,19.94
+Liver,Water,2,GAPDH,20.8,20.12
+Liver,Water,3,GAPDH,19.77,20.03
+Liver,Water,4,GAPDH,19.67,19.76
+Liver,Water,5,GAPDH,19.74,19.54
+Liver,Water,6,GAPDH,21.21,21.6
+Liver,Water,7,GAPDH,20.17,20.45
+Liver,Mix Dose 1,1,GAPDH,21,20.89
+Liver,Mix Dose 1,2,GAPDH,20.43,20.25
+Liver,Mix Dose 1,3,GAPDH,20.25,19.55
+Liver,Mix Dose 1,4,GAPDH,21.82,22.25
+Liver,Mix Dose 1,5,GAPDH,20.14,20.37
+Liver,Mix Dose 1,6,GAPDH,21.4,21.1
+Liver,Mix Dose 1,7,GAPDH,20.48,20.88
+Liver,Mix Dose 1,8,GAPDH,19.26,19.85
+Liver,Mix Dose 2,1,GAPDH,20.64,20.07
+Liver,Mix Dose 2,2,GAPDH,20.15,19.52
+Liver,Mix Dose 2,3,GAPDH,20.42,20.71
+Liver,Mix Dose 2,4,GAPDH,19.89,19.23
+Liver,Mix Dose 2,5,GAPDH,20.81,20.19
+Liver,Mix Dose 2,6,GAPDH,20.21,20.26
+Liver,Mix Dose 2,7,GAPDH,20.21,20.43
+Liver,Mix Dose 2,8,GAPDH,20.79,20.69
+Liver,Mix Dose 3,1,GAPDH,19.31,19.51
+Liver,Mix Dose 3,2,GAPDH,19.4,19.24
+Liver,Mix Dose 3,3,GAPDH,20.66,20.19
+Liver,Mix Dose 3,4,GAPDH,20.2,19.66
+Liver,Mix Dose 3,5,GAPDH,20.22,21.17
+Liver,Mix Dose 3,6,GAPDH,21.97,21.83
+Liver,Mix Dose 3,7,GAPDH,20.23,20.44
+Liver,Mix Dose 3,8,GAPDH,20.67,20.46
+Pectoral,No Injection,1,MyoD,23,22.85
+Pectoral,No Injection,2,MyoD,23.25,23.24
+Pectoral,No Injection,3,MyoD,23.1,24.06
+Pectoral,No Injection,4,MyoD,24.07,23.52
+Pectoral,No Injection,5,MyoD,23.92,23.91
+Pectoral,No Injection,6,MyoD,23.56,23.46
+Pectoral,No Injection,7,MyoD,23.23,23.27
+Pectoral,No Injection,8,MyoD,24.74,25.8
+Pectoral,Water,1,MyoD,24.47,23.95
+Pectoral,Water,2,MyoD,23.16,22.82
+Pectoral,Water,3,MyoD,24.18,23.62
+Pectoral,Water,4,MyoD,25.22,25.53
+Pectoral,Water,5,MyoD,24.34,24.66
+Pectoral,Water,6,MyoD,22.21,22.1
+Pectoral,Water,7,MyoD,23.31,24.28
+Pectoral,Mix Dose 1,1,MyoD,22.8,22.24
+Pectoral,Mix Dose 1,2,MyoD,22.47,23.27
+Pectoral,Mix Dose 1,3,MyoD,23.09,23.13
+Pectoral,Mix Dose 1,4,MyoD,23.53,23.43
+Pectoral,Mix Dose 1,5,MyoD,24.16,24.07
+Pectoral,Mix Dose 1,6,MyoD,23.09,22.85
+Pectoral,Mix Dose 1,7,MyoD,22.12,23.01
+Pectoral,Mix Dose 1,8,MyoD,25.27,24.41
+Pectoral,Mix Dose 2,1,MyoD,25.27,24.41
+Pectoral,Mix Dose 2,2,MyoD,26.27,26.42
+Pectoral,Mix Dose 2,3,MyoD,22.72,22.25
+Pectoral,Mix Dose 2,4,MyoD,22.52,22.98
+Pectoral,Mix Dose 2,5,MyoD,21.78,21.19
+Pectoral,Mix Dose 2,6,MyoD,22.32,23.09
+Pectoral,Mix Dose 2,7,MyoD,23.33,22.69
+Pectoral,Mix Dose 2,8,MyoD,22.85,23.16
+Pectoral,Mix Dose 3,1,MyoD,21.16,21.58
+Pectoral,Mix Dose 3,2,MyoD,21.05,21.62
+Pectoral,Mix Dose 3,3,MyoD,22.3,22.52
+Pectoral,Mix Dose 3,4,MyoD,20.86,20.99
+Pectoral,Mix Dose 3,5,MyoD,19.8,20.58
+Pectoral,Mix Dose 3,6,MyoD,20.97,20.09
+Pectoral,Mix Dose 3,7,MyoD,21.3,20.99
+Pectoral,Mix Dose 3,8,MyoD,20.73,19.79
+Pectoral,No Injection,1,MyHC1,26.11,26.49
+Pectoral,No Injection,2,MyHC1,24.76,24.42
+Pectoral,No Injection,3,MyHC1,29.15,29.06
+Pectoral,No Injection,4,MyHC1,26.09,26.88
+Pectoral,No Injection,5,MyHC1,26.6,26.67
+Pectoral,No Injection,6,MyHC1,27.56,28.31
+Pectoral,No Injection,7,MyHC1,28.01,27.98
+Pectoral,No Injection,8,MyHC1,29.21,29.48
+Pectoral,Water,1,MyHC1,27.02,26.64
+Pectoral,Water,2,MyHC1,29.21,28.82
+Pectoral,Water,3,MyHC1,29.61,29.93
+Pectoral,Water,4,MyHC1,27.33,27.95
+Pectoral,Water,5,MyHC1,28.01,29.55
+Pectoral,Water,6,MyHC1,30.19,30.17
+Pectoral,Water,7,MyHC1,25.41,25.06
+Pectoral,Mix Dose 1,1,MyHC1,24.82,25.07
+Pectoral,Mix Dose 1,2,MyHC1,27.07,28.03
+Pectoral,Mix Dose 1,3,MyHC1,25.29,25.14
+Pectoral,Mix Dose 1,4,MyHC1,28.62,28.28
+Pectoral,Mix Dose 1,5,MyHC1,28.99,28.53
+Pectoral,Mix Dose 1,6,MyHC1,26.42,25.83
+Pectoral,Mix Dose 1,7,MyHC1,27.08,26.36
+Pectoral,Mix Dose 1,8,MyHC1,25.33,25.46
+Pectoral,Mix Dose 2,1,MyHC1,27.47,27.44
+Pectoral,Mix Dose 2,2,MyHC1,26.24,26.16
+Pectoral,Mix Dose 2,3,MyHC1,21.49,21.56
+Pectoral,Mix Dose 2,4,MyHC1,25.17,25.25
+Pectoral,Mix Dose 2,5,MyHC1,23.46,23.64
+Pectoral,Mix Dose 2,6,MyHC1,24.11,24.24
+Pectoral,Mix Dose 2,7,MyHC1,27,28.37
+Pectoral,Mix Dose 2,8,MyHC1,23.94,24.17
+Pectoral,Mix Dose 3,1,MyHC1,23.21,23.9
+Pectoral,Mix Dose 3,2,MyHC1,25.34,25.28
+Pectoral,Mix Dose 3,3,MyHC1,23,23.17
+Pectoral,Mix Dose 3,4,MyHC1,30.9,30.1
+Pectoral,Mix Dose 3,5,MyHC1,21.92,22.01
+Pectoral,Mix Dose 3,6,MyHC1,24.4,24.46
+Pectoral,Mix Dose 3,7,MyHC1,24.29,24.14
+Pectoral,Mix Dose 3,8,MyHC1,25.59,25.88
+Pectoral,No Injection,1,MyHC2a,17.38,17.53
+Pectoral,No Injection,2,MyHC2a,18,18.16
+Pectoral,No Injection,3,MyHC2a,18.36,19.02
+Pectoral,No Injection,4,MyHC2a,17.85,18.62
+Pectoral,No Injection,5,MyHC2a,19.2,19.22
+Pectoral,No Injection,6,MyHC2a,18.22,18.37
+Pectoral,No Injection,7,MyHC2a,18.42,18.21
+Pectoral,No Injection,8,MyHC2a,18.54,19.1
+Pectoral,Water,1,MyHC2a,19.42,19.48
+Pectoral,Water,2,MyHC2a,18.4,18.15
+Pectoral,Water,3,MyHC2a,18.77,18.88
+Pectoral,Water,4,MyHC2a,20.91,20.41
+Pectoral,Water,5,MyHC2a,19.16,18.23
+Pectoral,Water,6,MyHC2a,19.22,19.27
+Pectoral,Water,7,MyHC2a,18.09,18.19
+Pectoral,Mix Dose 1,1,MyHC2a,17.51,17.33
+Pectoral,Mix Dose 1,2,MyHC2a,18.01,18.67
+Pectoral,Mix Dose 1,3,MyHC2a,18.25,18.87
+Pectoral,Mix Dose 1,4,MyHC2a,18.94,18.73
+Pectoral,Mix Dose 1,5,MyHC2a,18.97,18.41
+Pectoral,Mix Dose 1,6,MyHC2a,18.2,18.02
+Pectoral,Mix Dose 1,7,MyHC2a,17.58,17.62
+Pectoral,Mix Dose 1,8,MyHC2a,17.07,17.46
+Pectoral,Mix Dose 2,1,MyHC2a,21.01,20.49
+Pectoral,Mix Dose 2,2,MyHC2a,17.23,17.22
+Pectoral,Mix Dose 2,3,MyHC2a,16.02,16.2
+Pectoral,Mix Dose 2,4,MyHC2a,15.88,15.21
+Pectoral,Mix Dose 2,5,MyHC2a,15.43,14.95
+Pectoral,Mix Dose 2,6,MyHC2a,16.78,16.39
+Pectoral,Mix Dose 2,7,MyHC2a,17.85,18.49
+Pectoral,Mix Dose 2,8,MyHC2a,15.94,15.97
+Pectoral,Mix Dose 3,1,MyHC2a,16.99,16.95
+Pectoral,Mix Dose 3,2,MyHC2a,16.27,16.09
+Pectoral,Mix Dose 3,3,MyHC2a,15.81,15.96
+Pectoral,Mix Dose 3,4,MyHC2a,16.15,16.33
+Pectoral,Mix Dose 3,5,MyHC2a,16.08,15.4
+Pectoral,Mix Dose 3,6,MyHC2a,16.35,16.35
+Pectoral,Mix Dose 3,7,MyHC2a,16.13,16.02
+Pectoral,Mix Dose 3,8,MyHC2a,16.08,16.07
+Liver,No Injection,1,PRAAK1,27.88,27.51
+Liver,No Injection,2,PRAAK1,26.78,25.74
+Liver,No Injection,3,PRAAK1,26.03,26.05
+Liver,No Injection,4,PRAAK1,25.41,25.73
+Liver,No Injection,5,PRAAK1,25.61,26.03
+Liver,No Injection,6,PRAAK1,25.78,25.15
+Liver,No Injection,7,PRAAK1,25.3,24.3
+Liver,No Injection,8,PRAAK1,24.99,25.75
+Liver,Water,1,PRAAK1,26.36,26.89
+Liver,Water,2,PRAAK1,26.97,26.94
+Liver,Water,3,PRAAK1,26.39,26.67
+Liver,Water,4,PRAAK1,25.43,26.1
+Liver,Water,5,PRAAK1,24.74,24.24
+Liver,Water,6,PRAAK1,25.67,25.47
+Liver,Water,7,PRAAK1,26.68,26.18
+Liver,Mix Dose 1,1,PRAAK1,26.27,26.45
+Liver,Mix Dose 1,2,PRAAK1,25.42,25.53
+Liver,Mix Dose 1,3,PRAAK1,25.73,26.08
+Liver,Mix Dose 1,4,PRAAK1,26.77,26.89
+Liver,Mix Dose 1,5,PRAAK1,26.27,27.04
+Liver,Mix Dose 1,6,PRAAK1,25.42,25.78
+Liver,Mix Dose 1,7,PRAAK1,26.62,26.95
+Liver,Mix Dose 1,8,PRAAK1,25.97,25.36
+Liver,Mix Dose 2,1,PRAAK1,25.33,25.68
+Liver,Mix Dose 2,2,PRAAK1,26.14,25.07
+Liver,Mix Dose 2,3,PRAAK1,27.1,26.8
+Liver,Mix Dose 2,4,PRAAK1,24.66,24.27
+Liver,Mix Dose 2,5,PRAAK1,26.67,26.35
+Liver,Mix Dose 2,6,PRAAK1,26.17,26.22
+Liver,Mix Dose 2,7,PRAAK1,26.89,26.49
+Liver,Mix Dose 2,8,PRAAK1,25.67,26.5
+Liver,Mix Dose 3,1,PRAAK1,25.11,25.78
+Liver,Mix Dose 3,2,PRAAK1,22.3,21.75
+Liver,Mix Dose 3,3,PRAAK1,24.02,23.12
+Liver,Mix Dose 3,4,PRAAK1,24.83,24.83
+Liver,Mix Dose 3,5,PRAAK1,25.38,25.01
+Liver,Mix Dose 3,6,PRAAK1,27.68,27.2
+Liver,Mix Dose 3,7,PRAAK1,26.11,26.62
+Liver,Mix Dose 3,8,PRAAK1,23.72,22.78
+Liver,No Injection,1,PRAAK2,28.72,29.23
+Liver,No Injection,2,PRAAK2,27.1,27.32
+Liver,No Injection,3,PRAAK2,26.29,26.75
+Liver,No Injection,4,PRAAK2,25.61,25.39
+Liver,No Injection,5,PRAAK2,25.55,25.82
+Liver,No Injection,6,PRAAK2,25.51,25.53
+Liver,No Injection,7,PRAAK2,23.95,24.98
+Liver,No Injection,8,PRAAK2,25.39,25.47
+Liver,Water,1,PRAAK2,27.94,27.98
+Liver,Water,2,PRAAK2,27.65,27.45
+Liver,Water,3,PRAAK2,27.52,27.3
+Liver,Water,4,PRAAK2,26.17,26.23
+Liver,Water,5,PRAAK2,26.87,27.05
+Liver,Water,6,PRAAK2,27.6,27.37
+Liver,Water,7,PRAAK2,27.4,27.12
+Liver,Mix Dose 1,1,PRAAK2,26.83,26.94
+Liver,Mix Dose 1,2,PRAAK2,26.22,26.07
+Liver,Mix Dose 1,3,PRAAK2,26.26,26.69
+Liver,Mix Dose 1,4,PRAAK2,28.03,28.06
+Liver,Mix Dose 1,5,PRAAK2,27.3,27.9
+Liver,Mix Dose 1,6,PRAAK2,27.78,27.77
+Liver,Mix Dose 1,7,PRAAK2,28.54,28.4
+Liver,Mix Dose 1,8,PRAAK2,26.27,26.19
+Liver,Mix Dose 2,1,PRAAK2,26.73,26.82
+Liver,Mix Dose 2,2,PRAAK2,26.04,25.93
+Liver,Mix Dose 2,3,PRAAK2,28.41,27.8
+Liver,Mix Dose 2,4,PRAAK2,25,24.93
+Liver,Mix Dose 2,5,PRAAK2,27.06,27.45
+Liver,Mix Dose 2,6,PRAAK2,26.7,26.47
+Liver,Mix Dose 2,7,PRAAK2,26.54,26.57
+Liver,Mix Dose 2,8,PRAAK2,26.44,26.58
+Liver,Mix Dose 3,1,PRAAK2,25.48,25.51
+Liver,Mix Dose 3,2,PRAAK2,24.51,24.74
+Liver,Mix Dose 3,3,PRAAK2,25.74,26.03
+Liver,Mix Dose 3,4,PRAAK2,25.8,25.67
+Liver,Mix Dose 3,5,PRAAK2,26.13,26.01
+Liver,Mix Dose 3,6,PRAAK2,27.78,28.03
+Liver,Mix Dose 3,7,PRAAK2,29.2,28.77
+Liver,Mix Dose 3,8,PRAAK2,25.92,25.75
