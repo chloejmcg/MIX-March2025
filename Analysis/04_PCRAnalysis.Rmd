@@ -1793,7 +1793,7 @@ p_praak1_liv
 ```{r praak2-liv-fig}
 # Ensure treatment factor levels
 praak2_data_liv <- mix_results %>%
-  filter(Gene == "PRAKA2") %>%
+  filter(Gene == "PRAAK2") %>%
   mutate(Treatment = factor(Treatment, levels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")))
 
 # Ensure group1 and group2 are factors with the same levels as Treatment
