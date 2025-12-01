@@ -338,7 +338,7 @@ mix_histo <-
   mix_histo %>%
   mutate(
      radius = width_avg / 2,
-    surface_area = 2 * pi * radius^2   # top + bottom
+    surface_area = pi * radius^2   # top + bottom
                  + 2 * pi * radius * villis_height  # lateral
   )
 
