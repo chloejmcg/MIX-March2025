@@ -11,3 +11,16 @@ Data/16S/reference/
 # Large R objects
 *.rds
 *.RData
+# 16S data
+Data/16S/raw_fastq/
+Data/16S/trimmed/
+Data/16S/filtered/
+Data/16S/reference/
+
+# Large R objects
+*.rds
+*.RData
+
+# PICRUSt2
+Data/16S/picrust2_output/
+Data/16S/picrust2_input/
