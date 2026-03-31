@@ -12,7 +12,7 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       fig.align = "center",
-                      fig.path = "Figures/02_BloodLipid")
+                      fig.path = "Figures/02_BloodLipid/")
 ```
 
 # Set up the environment!
@@ -113,7 +113,7 @@ f1 <- ggplot(mix_lipid_labs, aes(x = treatment, y = hdl)) +
     annotate("text", x = 1, y = max(mix_lipid_labs$hdl, na.rm = TRUE) * 1.05,
              label = hdl_p_text, hjust = 0, size = 4) +
     labs(
-        title = "Figure A: HDL Levels by Treatment",
+        title = "A: HDL",
         y = "HDL (mg/dL)",
         x = NULL
     ) +
@@ -143,7 +143,7 @@ f2 <- ggplot(mix_lipid_labs, aes(x = treatment, y = ldl)) +
     annotate("text", x = 1, y = max(mix_lipid_labs$ldl, na.rm = TRUE) * 1.05,
              label = ldl_p_text, hjust = 0, size = 4) +
     labs(
-        title = "Figure B: LDL Levels by Treatment",
+        title = "B: LDL ",
         y = "LDL (mg/dL)",
         x = NULL
     ) +
@@ -160,7 +160,7 @@ f2
 ```
 
 
-```{r treatment-chol}
+```{r treatment-chol, fig.width=6.5, fig.height=4.5, dpi=300}
 # plot it
 f3 <- ggplot(mix_lipid_labs, aes(x = treatment, y = chol)) +
     geom_boxplot(aes(fill = treatment), outlier.shape = NA, color = "black", alpha = 0.5, width = 0.5) +  # Lighter box plot with treatment colors
@@ -172,7 +172,7 @@ f3 <- ggplot(mix_lipid_labs, aes(x = treatment, y = chol)) +
     annotate("text", x = 1, y = max(mix_lipid_labs$chol, na.rm = TRUE) * 1.05,
              label = hdl_p_text, hjust = 0, size = 4) +
     labs(
-        title = "Figure C: Cholesterol Levels by Treatment",
+        title = "C: Cholesterol",
         y = "Cholesterol (mg/dL)",
         x = NULL
     ) +
@@ -193,17 +193,17 @@ f3
 
 Let's put it into one three panel graph 
 
-```{r}
+```{r all-blood-lipid-sig, fig.width=6.5, fig.height=4.5, dpi=300}
 # f1 = HDL plot
 # f2 = LDL plot
 # f3 = cholesterol plot
 
 # Combine horizontally into a 3-panel figure
+
 combined_plot <- (f1 | f2 | f3) + 
   plot_annotation(title = "Lipid Profile by Treatment")
 
 combined_plot
 
-ggsave("Figures/02_BLoodLipid/lipid_panel.png", plot = combined_plot, width = 14, height = 5, dpi = 600)
 ```
 

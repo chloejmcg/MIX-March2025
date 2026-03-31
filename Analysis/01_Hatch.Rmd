@@ -92,7 +92,7 @@ The `anova_body` p value is 0.395, therefore no significant difference in body w
 
 ## Let's plot the body weight data
 
-```{r plot-body}
+```{r plot-body, fig.width=6.5, fig.height=4.5, dpi=300}
 # get ANOVA p-value
 anova_p_body <- summary(anova_body)[[1]]$`Pr(>F)`[1]  # pulls the p-value
 anova_p_body_text <- paste0("ANOVA p = ", signif(anova_p_body, 3)) # confirm correct p-value
@@ -186,7 +186,7 @@ Likewise for the `tukey_ceca` analyis, there was no significant difference as th
 
 ## Let's plot this! 
 
-```{r plot-ceca}
+```{r plot-ceca, fig.width=6.5, fig.height=4.5, dpi=300}
 # get ANOVA p-value
 anova_p_ceca <- summary(anova_ceca)[[1]]$`Pr(>F)`[1]  # pulls the p-value
 anova_p_ceca_text <- paste0("ANOVA p = ", signif(anova_p_ceca, 3)) # confirm correct p-value

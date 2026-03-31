@@ -12,7 +12,7 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
                       fig.align = "center",
-                        fig.path = "../Figures/04_PCRAnalysis/")
+                        fig.path = "Figures/04_PCRAnalysis/")
 ```
 
 # PCR Analysis
@@ -482,12 +482,12 @@ p_tnf
 
 #### All Final Figures
 
-```{r final-manuscript-fig-duo}
+```{r final-manuscript-fig-duo, fig.width=6.5, fig.height=6, dpi=300}
 
 duo_p <- (p_muc2 | p_ocln | p_tnf) +
   plot_layout(guides = "collect") +
   plot_annotation(
-    title = "Duodenum Gene Expression Response to Mix Treatment",
+    title = "Duodenum Gene Expression",
     theme = theme(
       plot.title = element_text(family = "Times New Roman", size = 16, face = "bold", hjust = 0.5)
     )
@@ -954,12 +954,12 @@ p_tnf_col
 
 #### All Final Figures
 
-```{r final-manuscript-fig-col}
+```{r final-manuscript-fig-col, fig.width=6.5, fig.height=6, dpi=300}
 
 col_p <- (p_muc2_col | p_ocln_col | p_tnf_col) +
   plot_layout(guides = "collect") +
   plot_annotation(
-    title = "Colon Gene Expression Response to Mix Treatment",
+    title = "Colon Gene Expression",
     theme = theme(
       plot.title = element_text(family = "Times New Roman", size = 16, face = "bold", hjust = 0.5)
     )
@@ -971,596 +971,6 @@ ggsave("final_plot_col_all_mix.png", plot = col_p,
        width = 10, height = 6, units = "in", dpi = 600)
 ```
 
-## Pectoral
-
-### Pfaffl Analysis
-
-```{r pec-pfaffl}
-
-# STEP 1: Preprocess and average replicates
-pec_avg <- mix_pcr %>%
-  filter(Tissue == "Pectoral") %>%
-  rowwise() %>%
-  mutate(Ct = mean(c_across(Rep1:Rep2), na.rm = TRUE)) %>%
-  ungroup() %>%
-  select(Sample, Treatment, Gene, Ct)
-
-# STEP 2: Join in efficiency values
-pec_eff <- tibble(
-  Gene = c("GAPDH", "mTOR", "MyHC1", "MyHC2a", "MyoD", "MyoG"),
-  Efficiency = c(1.9, 2.07, 2.01,2.01, 1.9, 1.86)
-)
-
-pec_data <- left_join(pec_avg, pec_eff, by = "Gene")
-
-glimpse(pec_data)
-
-# STEP 3: Split reference and target genes
-reference_gene <- "GAPDH"
-control_group <- "Water"
-
-genes_to_test <- c("mTOR", "MyHC1", "MyHC2a", "MyoD", "MyoG")
-
-# STEP 4: Create fold change calculator function using Pfaffl formula
-pfaffl_fc <- function(df, target_gene, ref_gene, control_group) {
-  # Subset target and reference data
-  target_df <- df %>% filter(Gene == target_gene)
-  ref_df    <- df %>% filter(Gene == ref_gene)
-
-  # Join on sample and treatment
-  joined <- inner_join(target_df, ref_df, by = c("Sample", "Treatment"), suffix = c("_target", "_ref"))
-
-  # Calculate ΔCt
-  joined <- joined %>%
-    mutate(delta_Ct_target = Ct_target - Ct_ref)
-
-  # Pre-calculate mean ΔCt of control group
-  control_delta_mean <- joined %>%
-    filter(Treatment == control_group) %>%
-    summarise(mean_delta_Ct = mean(delta_Ct_target, na.rm = TRUE)) %>%
-    pull(mean_delta_Ct)
-
-  # Calculate ΔΔCt and fold change
-  joined <- joined %>%
-    mutate(
-      delta_delta_Ct = delta_Ct_target - control_delta_mean,
-      fold_change = (Efficiency_target ^ -delta_delta_Ct) / (Efficiency_ref ^ -delta_delta_Ct)
-    )
-
-  return(joined)
-}
-
-# STEP 5: Apply function for each target gene
-pec_results <- map_dfr(genes_to_test, ~pfaffl_fc(pec_data, .x, ref_gene = "GAPDH", control_group = "Water"), .id = "GeneIndex") %>%
-  mutate(
-    log2_fc = log2(fold_change),
-    Gene = factor(Gene_target, levels = c("mTOR", "MyHC1", "MyHC2a", "MyoD", "MyoG"))  # Adjust if needed
-  )
-
-# STEP 6: Plot fold change
-pec_results <- pec_results %>%
-  select(-Gene) %>%                 # remove the existing Gene column
-  rename(Gene = Gene_target)       # now safely rename Gene_target to Gene
-
-pec_nosig <- ggplot(pec_results, aes(x = Treatment, y = fold_change, fill = Treatment)) +
-  geom_boxplot(alpha = 0.5) +
-  geom_jitter(width = 0.2, size = 2) +
-  facet_wrap(~ Gene, scales = "free_y") +
-  labs(title = "Pectoral: Pfaffl-Calculated Fold Change",
-       y = "Relative Expression (Fold Change)",
-       x = "Treatment") +
-  theme_minimal(base_family = "Times New Roman")
-
-pec_nosig
-```
-
-### Statistics
-
-```{r stat-assumptions-pec}
-
-# Check ANOVA assumptions (exclude "MyoD")
-
-# STEP 1: Shapiro-Wilks test for normality (per gene, excluding MyoD)
-shapiro_results_pec <- pec_results %>%
-  filter(Gene != "MyoD") %>%  # <-- Exclude MyoD here
-  group_by(Gene, Treatment) %>%
-  summarise(
-    shapiro_p = shapiro.test(fold_change)$p.value,
-    .groups = "drop"
-  )
-
-shapiro_results_pec
-# p > 0.05 normality assumption met for myhc1 and myhc2a
-
-# STEP 2: Levene's Test for equal variances (per gene, excluding MyoD)
-levene_results_pec <- pec_results %>%
-  filter(Gene != "MyoD") %>%  # <-- Exclude MyoD here too
-  group_by(Gene) %>%
-  group_map(~car::leveneTest(fold_change ~ Treatment, data = .x) %>%
-              tidy() %>%
-              mutate(Gene = .y$Gene),
-            .keep = TRUE) %>%
-  bind_rows()
-
-levene_results_pec
-# myhc1 met
-```
-
-ANOVA for MyHC1
-
-KW for MYHC2a and mTOR and MyoG
-
-```{r stats-final-pec}
-
-# mTOR KW
-# Filter
-mtor_data_pec <- filter(pec_results, Gene == "mTOR")
-kw_mtor_pec <- kruskal.test(log2_fc ~ Treatment, data = mtor_data_pec)
-kw_mtor_pec
-mtor_p_pec <- kw_mtor_pec$p.value
-mtor_p_pec
-
-# Dunn's Test
-dunn_mtor_pec <- dunnTest(log2_fc ~ Treatment, data = mtor_data_pec, method = "holm")
-mtor_pairs_pec <- dunn_mtor_pec$res
-mtor_sig_pec <- mtor_pairs_pec %>%
-  filter(P.adj < 0.05) %>%
-  separate(Comparison, into = c("group1", "group2"), sep = " - ") %>%
-  mutate(
-    label = ifelse(P.adj < 0.01, "**", "*"),
-    y.position = max(mtor_data_pec$log2_fc, na.rm = TRUE) + 0.2,
-    Gene = "mTOR"
-  )
-
-dunn_mtor_pec
-mtor_sig_pec
-
-# MYHC2a KW
-# Filter
-myhc1_data_pec <- filter(pec_results, Gene == "MyHC1")
-kw_myhc1_pec <- kruskal.test(log2_fc ~ Treatment, data = myhc1_data_pec)
-kw_myhc1_pec
-myhc1_p_pec <- kw_myhc1_pec$p.value
-myhc1_p_pec
-
-# Dunn's Test
-dunn_myhc1_pec <- dunnTest(log2_fc ~ Treatment, data = myhc1_data_pec, method = "holm")
-myhc1_pairs_pec <- dunn_myhc1_pec$res
-myhc1_sig_pec <- myhc1_pairs_pec %>%
-  filter(P.adj < 0.05) %>%
-  separate(Comparison, into = c("group1", "group2"), sep = " - ") %>%
-  mutate(
-    label = ifelse(P.adj < 0.01, "**", "*"),
-    y.position = max(myhc1_data_pec$log2_fc, na.rm = TRUE) + 0.2,
-    Gene = "MyHC1"
-  )
-
-dunn_myhc1_pec
-myhc1_sig_pec
-
-
-# MYHC2A ANOVA
-
-myhc2a_data_pec <- filter(pec_results, Gene == "MyHC2a")
-
-# ANOVA
-myhc2a_aov_pec <- aov(log2_fc ~ Treatment, data = myhc2a_data_pec)
-myhc2a_p_pec <- summary(myhc2a_aov_pec)[[1]][["Pr(>F)"]][1]
-myhc2a_p_pec
-
-# Tukey HSD
-tukey_myhc2a_pec <- TukeyHSD(myhc2a_aov_pec)
-myhc2a_pairs_pec <- as.data.frame(tukey_myhc2a_pec$Treatment)
-myhc2a_pairs_pec$comparison <- rownames(myhc2a_pairs_pec)
-
-myhc2a_sig_pec <- myhc2a_pairs_pec %>%
-  filter(`p adj` < 0.05) %>%
-  separate(comparison, into = c("group1", "group2"), sep = "-") %>%
-  mutate(
-    label = ifelse(`p adj` < 0.01, "**", "*"),
-    y.position = max(myhc2a_data_pec$log2_fc, na.rm = TRUE) + 0.2,
-    Gene = "MyHC2a"
-  )
-
-myhc2a_sig_pec
-
-# MyoG KW
-
-myog_data_pec <- filter(pec_results, Gene == "MyoG")
-kw_myog_pec <- kruskal.test(log2_fc ~ Treatment, data = myog_data_pec)
-kw_myog_pec
-myog_p_pec <- kw_myog_pec$p.value
-myog_p_pec
-
-# Dunn's Test
-dunn_myog_pec <- dunnTest(log2_fc ~ Treatment, data = myog_data_pec, method = "holm")
-myog_pairs_pec <- dunn_myog_pec$res
-myog_sig_pec <- myog_pairs_pec %>%
-  filter(P.adj < 0.05) %>%
-  separate(Comparison, into = c("group1", "group2"), sep = " - ") %>%
-  mutate(
-    label = ifelse(P.adj < 0.01, "**", "*"),
-    y.position = max(myog_data_pec$log2_fc, na.rm = TRUE) + 0.2,
-    Gene = "MyoG"
-  )
-
-dunn_myog_pec
-myog_sig_pec
-
-
-
-```
-
-### Manuscript Ready Pectoral Figure
-
-#### mTOR
-
-```{r pec-mtor-fig}
-
-# Ensure treatment factor levels
-mtor_data_pec <- pec_results %>%
-  filter(Gene == "mTOR") %>%
-  mutate(Treatment = factor(Treatment, levels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")))
-
-# Ensure group1 and group2 are factors with the same levels as Treatment
-mtor_sig_pec <- mtor_sig_pec %>%
-  mutate(
-    group1 = factor(group1, levels = levels(mtor_data_pec$Treatment)),
-    group2 = factor(group2, levels = levels(mtor_data_pec$Treatment))
-  )
-
-# Define comparison pairs (order matters!)
-mtor_comparisons_pec <- list(
-  c("Mix Dose 1", "Mix Dose 2"),
-  c("Mix Dose 1","Mix Dose 3"),
-  c("Mix Dose 2", "No Injection"),
-  c("Mix Dose 3","No Injection"),
-  c("Mix Dose 2", "Water"),
-  c("Mix Dose 3","Water")
-)
-
-mtor_sig_pec <- mtor_sig_pec %>%
-  mutate(
-    y.position = c(-0.75, -0.5, 0.4, 0.6, -0.25, 0.8)  # lower than before
-  )
-
-table(mtor_data_pec$Treatment)
-
-mtor_data_pec %>%
-  group_by(Treatment) %>%
-  summarise(
-    n = n(),
-    min_val = min(log2_fc, na.rm = TRUE),
-    max_val = max(log2_fc, na.rm = TRUE)
-  )
-
-p_mtor_pec <- ggplot(mtor_data_pec, aes(x = Treatment, y = log2_fc, fill = Treatment)) +
-  geom_boxplot(alpha = 0.6, outlier.shape = NA, color = "black") +
-  geom_jitter(aes(color = Treatment), width = 0.15, size = 1.8, alpha = 0.8) +
-  scale_fill_manual(values = treatment_colors) +
-  scale_color_manual(values = treatment_colors) +
-  theme_minimal(base_size = 14) +
-  theme(
-    text = element_text(family = "Times New Roman"),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "none"
-  ) +
-  labs(
-    title = "mTOR",
-    x = NULL,
-    y = expression(log[2]*"(Fold Change)")
-  ) +
-  ggsignif::geom_signif(
-    data = mtor_sig_pec,
-    aes(
-      xmin = group1,
-      xmax = group2,
-      annotations = label,
-      y_position = y.position
-    ),
-    inherit.aes = FALSE,
-    manual = TRUE,
-    tip_length = 0.01,
-    textsize = 4,
-    vjust = 0.3
-  ) +
-  annotate("text", x = 3, y = 1,
-           label = "KW~italic(p) == 1.1e-05", parse = TRUE, size = 4.5) +
-  coord_cartesian(ylim = c(-1.5, 1))
-
-# Show the plot
-p_mtor_pec
-
-```
-
-#### MyHC2a
-
-```{r myhc1-pec-fig}
-# Ensure treatment factor levels
-# Ensure treatment factor levels
-myhc2a_data_pec <- pec_results %>%
-  filter(Gene == "MyHC2a") %>%
-  mutate(Treatment = factor(Treatment, levels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")))
-
-# Ensure group1 and group2 are factors with the same levels as Treatment
-myhc2a_sig_pec <- myhc2a_sig_pec %>%
-  mutate(
-    group1 = factor(group1, levels = levels(myhc2a_data_pec$Treatment)),
-    group2 = factor(group2, levels = levels(myhc2a_data_pec$Treatment))
-  )
-
-# Define comparison pairs (order matters!)
-myhc2a_comparisons_pec <- list(
-  c("Mix Dose 1", "Mix Dose 2"),
-  c("Mix Dose 1","Mix Dose 3"),
-  c("Mix Dose 2", "No Injection"),
-  c("Mix Dose 3","No Injection"),
-  c("Mix Dose 2", "Water"),
-  c("Mix Dose 3","Water")
-)
-
-myhc2a_sig_pec <- myhc2a_sig_pec %>%
-  mutate(
-    y.position = c(-0.35, -0.5, 0.25, 0.5, -0.2, 0.4)  # adjust as needed
-  )
-
-# Plot
-p_myhc2a_pec <- ggplot(myhc2a_data_pec, aes(x = Treatment, y = log2_fc, fill = Treatment)) +
-  geom_boxplot(alpha = 0.6, outlier.shape = NA, color = "black") +
-  geom_jitter(aes(color = Treatment), width = 0.15, size = 1.8, alpha = 0.8) +
-  scale_fill_manual(values = treatment_colors) +
-  scale_color_manual(values = treatment_colors) +
-  theme_minimal(base_size = 14) +
-  theme(
-    text = element_text(family = "Times New Roman"),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "none"
-  ) +
-  labs(
-    title = "MyHC2a",
-    x = NULL,
-    y = expression(log[2]*"(Fold Change)")
-  ) +
-  ggsignif::geom_signif(
-    data = myhc2a_sig_pec,
-    aes(
-      xmin = group1,
-      xmax = group2,
-      annotations = label,
-      y_position = y.position
-    ),
-    inherit.aes = FALSE,
-    manual = TRUE,
-    tip_length = 0.01,
-    textsize = 4,
-    vjust = 0.3
-  ) +
-  annotate("text", x = 3, y = 0.75,
-           label = "KW~italic(p) == 1.2e-05", parse = TRUE, size = 4.5) +
-  coord_cartesian(ylim = c(-1, .75))
-
-# Show the plot
-p_myhc2a_pec
-
-
-```
-
-
-#### MyHC1
-
-```{r mych1a-pec-fig}
-
-myhc1_data_pec <- pec_results %>%
-  filter(Gene == "MyHC1") %>%
-  mutate(Treatment = factor(Treatment, levels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")))
-
-# Ensure group1 and group2 are factors with the same levels as Treatment
-myhc1_sig_pec <- myhc1_sig_pec %>%
-  mutate(
-    group1 = factor(group1, levels = levels(myhc1_data_pec$Treatment)),
-    group2 = factor(group2, levels = levels(myhc1_data_pec$Treatment))
-  )
-
-# Define comparison pairs (order matters!)
-myhc1_comparisons_pec <- list(
-  c("Mix Dose 1", "Mix Dose 2"),
-  c("Mix Dose 1", "Mix Dose 3"),
-  c("Mix Dose 2", "No Injection"),
-  c("Mix Dose 3", "No Injection"),
-  c("Mix Dose 2", "Water"),
-  c("Mix Dose 3", "Water")
-)
-
-myhc1_sig_pec <- myhc1_sig_pec %>%
-  mutate(
-    y.position = c(-0.35, 0.25, 0.35, 0.55, -0.2, 0.45)  # adjust as needed
-  )
-
-# Plot
-p_myhc1_pec <- ggplot(myhc1_data_pec, aes(x = Treatment, y = log2_fc, fill = Treatment)) +
-  geom_boxplot(alpha = 0.6, outlier.shape = NA, color = "black") +
-  geom_jitter(aes(color = Treatment), width = 0.15, size = 1.8, alpha = 0.8) +
-  scale_fill_manual(values = treatment_colors) +
-  scale_color_manual(values = treatment_colors) +
-  theme_minimal(base_size = 14) +
-  theme(
-    text = element_text(family = "Times New Roman"),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "none"
-  ) +
-  labs(
-    title = "MyHC1",
-    x = NULL,
-    y = expression(log[2]*"(Fold Change)")
-  ) +
-  ggsignif::geom_signif(
-    data = myhc1_sig_pec,
-    aes(
-      xmin = group1,
-      xmax = group2,
-      annotations = label,
-      y_position = y.position
-    ),
-    inherit.aes = FALSE,
-    manual = TRUE,
-    tip_length = 0.01,
-    textsize = 4,
-    vjust = 0.3
-  ) +
-  annotate("text", x = 3, y = 0.75,
-           label = "ANOVA~italic(p) == 1.9e-23", parse = TRUE, size = 4.5) +
-  coord_cartesian(ylim = c(-1, 0.75))
-
-# Show the plot
-p_myhc1_pec
-
-
-```
-
-#### MyoD
-
-```{r pec-myod-fig}
-
-# Prepare MyoD dataset
-myod_data_pec <- pec_results %>%
-  filter(Gene == "MyoD") %>%
-  mutate(Treatment = factor(Treatment,
-                            levels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")))
-
-# MyoD figure (no stats, clean format)
-p_myod_pec <- ggplot(myod_data_pec, aes(x = Treatment, y = log2_fc, fill = Treatment)) +
-  geom_boxplot(alpha = 0.6, outlier.shape = NA, color = "black") +
-  geom_jitter(aes(color = Treatment), width = 0.15, size = 1.8, alpha = 0.8) +
-  scale_fill_manual(values = treatment_colors) +
-  scale_color_manual(values = treatment_colors) +
-  theme_minimal(base_size = 14) +
-  theme(
-    text = element_text(family = "Times New Roman"),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "none"
-  ) +
-  labs(
-    title = "MyoD",
-    x = NULL,
-    y = expression(log[2]*"(Fold Change)")
-  ) +
-  coord_cartesian(ylim = c(-0.5, 0.75))
-
-# Show the plot
-p_myod_pec
-
-
-```
-
-#### MyoG
-
-
-```{r pec-myog-fig}
-
-# Ensure treatment factor levels
-myog_data_pec <- pec_results %>%
-  filter(Gene == "MyoG") %>%
-  mutate(Treatment = factor(Treatment, levels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")))
-
-# Ensure group1 and group2 are factors with the same levels as Treatment
-myog_sig_pec <- myog_sig_pec %>%
-  mutate(
-    group1 = factor(group1, levels = levels(myog_data_pec$Treatment)),
-    group2 = factor(group2, levels = levels(myog_data_pec$Treatment))
-  )
-
-# Define comparison pairs (order matters!)
-myog_comparisons_pec <- list(
-  c("Mix Dose 1", "Mix Dose 2"),
-  c("Mix Dose 1","Mix Dose 3"),
-  c("Mix Dose 2", "No Injection"),
-  c("Mix Dose 3","No Injection"),
-  c("Mix Dose 2", "Water")
-)
-
-myog_sig_pec <- myog_sig_pec %>%
-  mutate(
-    y.position = c(0.05, 0.1, 0.15, 0.3, 0.2)  # lower than before
-  )
-
-table(myog_data_pec$Treatment)
-
-myog_data_pec %>%
-  group_by(Treatment) %>%
-  summarise(
-    n = n(),
-    min_val = min(log2_fc, na.rm = TRUE),
-    max_val = max(log2_fc, na.rm = TRUE)
-  )
-
-p_myog_pec <- ggplot(myog_data_pec, aes(x = Treatment, y = log2_fc, fill = Treatment)) +
-  geom_boxplot(alpha = 0.6, outlier.shape = NA, color = "black") +
-  geom_jitter(aes(color = Treatment), width = 0.15, size = 1.8, alpha = 0.8) +
-  scale_fill_manual(values = treatment_colors) +
-  scale_color_manual(values = treatment_colors) +
-  theme_minimal(base_size = 14) +
-  theme(
-    text = element_text(family = "Times New Roman"),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "none"
-  ) +
-  labs(
-    title = "MyoG",
-    x = NULL,
-    y = expression(log[2]*"(Fold Change)")
-  ) +
-  ggsignif::geom_signif(
-    data = myog_sig_pec,
-    aes(
-      xmin = group1,
-      xmax = group2,
-      annotations = label,
-      y_position = y.position
-    ),
-    inherit.aes = FALSE,
-    manual = TRUE,
-    tip_length = 0.01,
-    textsize = 4,
-    vjust = 0.3
-  ) +
-  annotate("text", x = 3, y = 0.4,
-           label = "KW~italic(p) == 4.3e-06", parse = TRUE, size = 4.5) +
-  coord_cartesian(ylim = c(-0.1, 0.4))
-
-# Show the plot
-p_myog_pec
-
-```
-
-
-#### All Final Figures manuscript Ready
-
-```{r all-pec-figs}
-
-pec_p <- ((p_myog_pec | p_myod_pec | p_mtor_pec ) / (p_myhc1_pec | p_myhc2a_pec))  +
-  plot_layout(guides = "collect") +
-  plot_annotation(
-    title = "Pectoral Gene Expression Response to Mix Treatment",
-    theme = theme(
-      plot.title = element_text(family = "Times New Roman", size = 16, face = "bold", hjust = 0.5)
-    )
-  )
-
-pec_p
-
-ggsave("final_plot_pec_all_mix.png", plot = pec_p, 
-       width = 10, height = 10, units = "in", dpi = 600)
-```
 
 ## Liver
 
@@ -1578,8 +988,8 @@ mix_avg <- mix_pcr %>%
 
 # STEP 2: Join in efficiency values
 mix_eff <- tibble(
-  Gene = c("GAPDH", "PRAAK1", "PRAAK2"),
-  Efficiency = c(1.93, 2.15, 1.99)
+  Gene = c("GAPDH", "PRAAK1", "PRAAK2", "DGAT2" , "PPARg"),
+  Efficiency = c(1.93, 2.15, 1.99, 2.1, 2.1)
 )
 
 mix_data <- left_join(mix_avg, mix_eff, by = "Gene")
@@ -1590,7 +1000,7 @@ glimpse(mix_data)
 reference_gene <- "GAPDH"
 control_group <- "Water"
 
-genes_to_test <- c("PRAAK1", "PRAAK2")
+genes_to_test <- c("PRAAK1", "PRAAK2", "DGAT2", "PPARg")
 
 # STEP 4: Create fold change calculator function using Pfaffl formula
 pfaffl_fc <- function(df, target_gene, ref_gene, control_group) {
@@ -1680,51 +1090,78 @@ Kruskal Wallis needed for all of them
 
 ```{r stats-final-liv}
 
-# PRAAK1 KW
-# Filter
-praak1_data_liv <- filter(mix_results, Gene == "PRAAK1")
-kw_praak1_liv <- kruskal.test(log2_fc ~ Treatment, data = praak1_data_liv)
-kw_praak1_liv
-praak1_p_liv <- kw_praak1_liv$p.value
-praak1_p_liv
+# Helper: subset, coerce, drop unused factor levels
+prep_gene_data <- function(df, gene_name) {
+  df %>%
+    filter(Gene == gene_name) %>%
+    mutate(Treatment = as.factor(Treatment),
+           Gene = as.factor(Gene)) %>%
+    droplevels()
+}
 
-# Dunn's Test
-dunn_praak1_liv <- dunnTest(log2_fc ~ Treatment, data = praak1_data_liv, method = "holm")
+# ── PRAAK1 ────────────────────────────────────────────────────────────────────
+praak1_data_liv  <- prep_gene_data(mix_results, "PRAAK1")
+kw_praak1_liv    <- kruskal.test(log2_fc ~ Treatment, data = praak1_data_liv)
+praak1_p_liv     <- kw_praak1_liv$p.value
+dunn_praak1_liv  <- dunnTest(log2_fc ~ Treatment, data = praak1_data_liv, method = "holm")
 praak1_pairs_liv <- dunn_praak1_liv$res
-praak1_sig_liv <- praak1_pairs_liv %>%
+praak1_sig_liv   <- praak1_pairs_liv %>%
   filter(P.adj < 0.05) %>%
   separate(Comparison, into = c("group1", "group2"), sep = " - ") %>%
-  mutate(
-    label = ifelse(P.adj < 0.01, "**", "*"),
-    y.position = max(praak1_data_liv$log2_fc, na.rm = TRUE) + 0.2,
-    Gene = "PRAAK1"
-  )
+  mutate(label      = ifelse(P.adj < 0.01, "**", "*"),
+         y.position = max(praak1_data_liv$log2_fc, na.rm = TRUE) + 0.2,
+         Gene       = "PRAAK1")
 
-dunn_praak1_liv
+kw_praak1_liv
 praak1_sig_liv
 
-# PRAAK2 KW
-# Filter
-praak2_data_liv <- filter(mix_results, Gene == "PRAAK2")
-kw_praak2_liv <- kruskal.test(log2_fc ~ Treatment, data = praak2_data_liv)
-kw_praak2_liv
-praak2_p_liv <- kw_praak2_liv$p.value
-praak2_p_liv
-
-# Dunn's Test
-dunn_praak2_liv <- dunnTest(log2_fc ~ Treatment, data = praak2_data_liv, method = "holm")
+# ── PRAAK2 ────────────────────────────────────────────────────────────────────
+praak2_data_liv  <- prep_gene_data(mix_results, "PRAAK2")
+kw_praak2_liv    <- kruskal.test(log2_fc ~ Treatment, data = praak2_data_liv)
+praak2_p_liv     <- kw_praak2_liv$p.value
+dunn_praak2_liv  <- dunnTest(log2_fc ~ Treatment, data = praak2_data_liv, method = "holm")
 praak2_pairs_liv <- dunn_praak2_liv$res
-praak2_sig_liv <- praak2_pairs_liv %>%
+praak2_sig_liv   <- praak2_pairs_liv %>%
   filter(P.adj < 0.05) %>%
   separate(Comparison, into = c("group1", "group2"), sep = " - ") %>%
-  mutate(
-    label = ifelse(P.adj < 0.01, "**", "*"),
-    y.position = max(praak2_data_liv$log2_fc, na.rm = TRUE) + 0.2,
-    Gene = "PRAAK2"
-  )
+  mutate(label      = ifelse(P.adj < 0.01, "**", "*"),
+         y.position = max(praak2_data_liv$log2_fc, na.rm = TRUE) + 0.2,
+         Gene       = "PRAAK2")
 
-dunn_praak2_liv
+kw_praak2_liv
 praak2_sig_liv
+
+# ── DGAT2 ─────────────────────────────────────────────────────────────────────
+dgat2_data_liv  <- prep_gene_data(mix_results, "DGAT2")
+kw_dgat2_liv    <- kruskal.test(log2_fc ~ Treatment, data = dgat2_data_liv)
+dgat2_p_liv     <- kw_dgat2_liv$p.value
+dunn_dgat2_liv  <- dunnTest(log2_fc ~ Treatment, data = dgat2_data_liv, method = "holm")
+dgat2_pairs_liv <- dunn_dgat2_liv$res
+dgat2_sig_liv   <- dgat2_pairs_liv %>%
+  filter(P.adj < 0.05) %>%
+  separate(Comparison, into = c("group1", "group2"), sep = " - ") %>%
+  mutate(label      = ifelse(P.adj < 0.01, "**", "*"),
+         y.position = max(dgat2_data_liv$log2_fc, na.rm = TRUE) + 0.2,
+         Gene       = "DGAT2")
+
+kw_dgat2_liv
+dgat2_sig_liv
+
+# ── PPARg ─────────────────────────────────────────────────────────────────────
+pparg_data_liv  <- prep_gene_data(mix_results, "PPARg")
+kw_pparg_liv    <- kruskal.test(log2_fc ~ Treatment, data = pparg_data_liv)
+pparg_p_liv     <- kw_pparg_liv$p.value
+dunn_pparg_liv  <- dunnTest(log2_fc ~ Treatment, data = pparg_data_liv, method = "holm")
+pparg_pairs_liv <- dunn_pparg_liv$res
+pparg_sig_liv   <- pparg_pairs_liv %>%
+  filter(P.adj < 0.05) %>%
+  separate(Comparison, into = c("group1", "group2"), sep = " - ") %>%
+  mutate(label      = ifelse(P.adj < 0.01, "**", "*"),
+         y.position = max(pparg_data_liv$log2_fc, na.rm = TRUE) + 0.2,
+         Gene       = "PPARg")
+
+kw_pparg_liv
+pparg_sig_liv
 
 ```
 
@@ -1846,11 +1283,131 @@ p_praak2_liv
 
 ```
 
-#### All Final Figures manuscript Ready
+#### DGAT2
 
-```{r all-liv-figs}
+```{r dgat2-liv-fig}
+# Ensure treatment factor levels
+dgat2_data_liv <- mix_results %>%
+  filter(Gene == "DGAT2") %>%
+  mutate(Treatment = factor(Treatment, levels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")))
 
-liv_p <- (p_praak1_liv | p_praak2_liv)  +
+# Ensure group1 and group2 are factors with the same levels as Treatment
+dgat2_sig_liv <- dgat2_sig_liv %>%
+  mutate(
+    group1 = factor(group1, levels = levels(dgat2_data_liv$Treatment)),
+    group2 = factor(group2, levels = levels(dgat2_data_liv$Treatment))
+  )
+
+# Plot
+p_dgat2_liv <- ggplot(dgat2_data_liv, aes(x = Treatment, y = log2_fc, fill = Treatment)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA, color = "black") +
+  geom_jitter(aes(color = Treatment), width = 0.15, size = 1.8, alpha = 0.8) +
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  theme_minimal(base_size = 14) +
+  theme(
+    text = element_text(family = "Times New Roman"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = "DGAT2",
+    x = NULL,
+    y = expression(log[2]*"(Fold Change)")
+  ) + 
+  ggsignif::geom_signif(
+    data = dgat2_sig_liv,
+    aes(
+      xmin = group1,
+      xmax = group2,
+      annotations = label,
+      y_position = y.position
+    ),
+    inherit.aes = FALSE,
+    manual = TRUE,
+    tip_length = 0.01,
+    textsize = 4,
+    vjust = 0.3
+  ) +
+  annotate("text", x = 3, y = 0.3,
+           label = "KW~italic(p) == 0.22", parse = TRUE, size = 4.5) +
+  coord_cartesian(ylim = c(-0.4, 0.3))
+
+# Show plot
+p_dgat2_liv
+
+```
+
+#### PPARg
+
+```{r pprag-liv-fig}
+
+# Ensure treatment factor levels
+pparg_data_liv <- mix_results %>%
+  filter(Gene == "PPARg") %>%
+  mutate(Treatment = factor(Treatment, levels = c("No Injection", "Water", "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")))
+
+# Ensure group1 and group2 are factors with the same levels as Treatment
+pparg_sig_liv <- pparg_sig_liv %>%
+  mutate(
+    group1 = factor(group1, levels = levels(pparg_data_liv$Treatment)),
+    group2 = factor(group2, levels = levels(pparg_data_liv$Treatment))
+  )
+
+pparg_sig_liv <- pparg_sig_liv %>%
+  mutate(
+    y.position = c(1.2, 1.1, 1.3, 1.5)  # lower than before
+  )
+
+# Plot
+p_pparg_liv <- ggplot(pparg_data_liv, aes(x = Treatment, y = log2_fc, fill = Treatment)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA, color = "black") +
+  geom_jitter(aes(color = Treatment), width = 0.15, size = 1.8, alpha = 0.8) +
+  scale_fill_manual(values = treatment_colors) +
+  scale_color_manual(values = treatment_colors) +
+  theme_minimal(base_size = 14) +
+  theme(
+    text = element_text(family = "Times New Roman"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    legend.position = "none"
+  ) +
+  labs(
+    title = expression(bold(PPAR[gamma])),
+    x = NULL,
+    y = expression(log[2]*"(Fold Change)")
+  ) + 
+  ggsignif::geom_signif(
+    data = pparg_sig_liv,
+    aes(
+      xmin = group1,
+      xmax = group2,
+      annotations = label,
+      y_position = y.position
+    ),
+    inherit.aes = FALSE,
+    manual = TRUE,
+    tip_length = 0.01,
+    textsize = 4,
+    vjust = 0.3
+  ) +
+  annotate("text", x = 3, y = 1.8,
+           label = "KW~italic(p) == 9.9e-05", parse = TRUE, size = 4.5) +
+  coord_cartesian(ylim = c(-0.2, 1.8))
+
+# Show plot
+p_pparg_liv
+
+```
+
+#### All Final Figures Manuscript Ready
+
+```{r all-liv-figs, fig.width=10, fig.height=10, dpi=300}
+
+liv_p <- (p_praak1_liv | p_praak2_liv) / (p_dgat2_liv | p_pparg_liv)  +
   plot_layout(guides = "collect") +
   plot_annotation(
     title = "Liver Gene Expression Response to Mix Treatment",

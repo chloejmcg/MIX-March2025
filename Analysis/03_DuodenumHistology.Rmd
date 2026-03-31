@@ -803,7 +803,7 @@ p_goblet
 
 ## 7. Making a publication ready figure
 
-```{r pub-ready-figures}
+```{r pub-ready-figures, fig.width=10, fig.height=10, dpi=300}
 
 # just figures no significance
 raw <- (height | width | crypt ) +
