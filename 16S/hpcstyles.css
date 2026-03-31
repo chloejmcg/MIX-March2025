@@ -1,0 +1,13 @@
+body {
+  font-family: "Times New Roman", Times, serif;
+}
+
+/* Force Times New Roman for all headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Times New Roman", Times, serif !important;
+}
+
+/* Optional: also enforce for title + navbar */
+.title, .author, .date {
+  font-family: "Times New Roman", Times, serif !important;
+}

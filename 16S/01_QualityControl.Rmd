@@ -1,0 +1,298 @@
+---
+title: "01_QualityControl"
+author: "Chloe J McGovern"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    css: "hpcstyles.css"
+    code_folding: show
+    theme: spacelab
+    highlight: pygments
+    keep_md: no
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+  keep_md: true  
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  cache   = TRUE,
+  fig.path   = "~/MIX-March2025/Figures/16S/01_QualityControl/",
+  fig.width  = 12,
+  fig.height = 8,
+  dev        = "png",
+  dpi        = 300
+)
+```
+
+#Set Up Working Environment
+
+## Load Packages
+```{r libraries}
+library(dada2)
+library(tidyverse)
+library(ShortRead)
+library(Biostrings)
+```
+
+
+## Load Data
+```{r paths}
+project_dir <- "~/MIX-March2025"
+raw_dir     <- file.path(project_dir, "Data/16S/raw_fastq")
+trim_dir    <- file.path(project_dir, "Data/16S/trimmed")
+
+stopifnot(dir.exists(raw_dir))
+stopifnot(dir.exists(trim_dir))
+
+raw_files    <- sort(list.files(raw_dir, pattern = "\\.fastq\\.gz$", full.names = TRUE))
+sample_names <- sub("\\.fastq\\.gz$", "", basename(raw_files))
+
+cat("Number of samples:", length(sample_names), "\n")
+cat("Sample names:\n")
+print(sample_names)
+```
+
+Yay! All of the files are here. 
+
+# Quality Analysis
+
+## Raw Quality Plots
+
+```{r raw_quality_h2o, fig.width=12, fig.height=8}
+# H2O negative controls
+plotQualityProfile(raw_files[1:4])
+```
+
+```{r raw_quality_mix, fig.width=12, fig.height=8}
+# MIX biological samples
+plotQualityProfile(raw_files[5:9])   # MIX-1
+plotQualityProfile(raw_files[10:14]) # MIX-2
+plotQualityProfile(raw_files[15:19]) # MIX-3
+```
+
+## Primer Set Up
+
+27F/1492R Kinnex full-length 16S primer set. Primers and their 
+reverse complements must all be removed to prevent interference 
+with DADA2 denoising (Callahan et al., 2016, *Nature Methods*).
+
+```{r primers}
+FWD <- "AGAGTTTGATCMTGGCTCAG"   # 27F
+REV <- "TACGGYTACCTTGTTACGACTT" # 1492R
+
+allOrients <- function(primer) {
+  dna <- DNAString(primer)
+  c(
+    Forward    = toString(dna),
+    Complement = toString(complement(dna)),
+    Reverse    = toString(reverse(dna)),
+    RevComp    = toString(reverseComplement(dna))
+  )
+}
+
+FWD.orients <- allOrients(FWD)
+REV.orients <- allOrients(REV)
+
+cat("FWD primer orientations:\n"); print(FWD.orients)
+cat("\nREV primer orientations:\n"); print(REV.orients)
+```
+
+## Primer Check
+
+```{r primer_check}
+primerHits <- function(primer, fn) {
+  nhits <- vcountPattern(primer, sread(readFastq(fn)), fixed = FALSE)
+  return(sum(nhits > 0))
+}
+
+# Check first biological sample (MIX-1-1)
+cat("Primer hits in", sample_names[5], ":\n")
+rbind(
+  FWD.ForwardReads = primerHits(FWD.orients[["Forward"]], raw_files[5]),
+  FWD.ReverseReads = primerHits(FWD.orients[["RevComp"]], raw_files[5]),
+  REV.ForwardReads = primerHits(REV.orients[["Forward"]], raw_files[5]),
+  REV.ReverseReads = primerHits(REV.orients[["RevComp"]], raw_files[5])
+)
+```
+
+## Primer Trim
+
+```{r cutadapt_trim}
+cutadapt <- "/home/cjm423/.local/bin/cutadapt"
+system2(cutadapt, args = "--version")
+
+trim_files <- file.path(trim_dir, basename(raw_files))
+
+trim_results <- vector("list", length(raw_files))
+
+for (i in seq_along(raw_files)) {
+  cat("Trimming:", sample_names[i], "\n")
+  
+  trim_results[[i]] <- system2(
+    cutadapt,
+    args = c(
+      "-g", FWD,
+      "-a", REV,
+      "--rc",
+      "--discard-untrimmed",
+      "--minimum-length", "1000",
+      "--maximum-length", "2000",
+      "-o", trim_files[i],
+      raw_files[i],
+      "--quiet"
+    ),
+    stdout = TRUE,
+    stderr = TRUE
+  )
+}
+
+cat("Trimming complete!\n")
+```
+
+# Post Trim Analysis
+
+## Post Trim Quality
+
+```{r post_trim_quality, fig.width=12, fig.height=8}
+# Verify trimmed files exist and are non-empty
+trim_sizes <- file.info(trim_files)$size
+trim_check <- data.frame(
+  sample       = sample_names,
+  raw_size_MB  = round(file.info(raw_files)$size / 1e6, 2),
+  trim_size_MB = round(trim_sizes / 1e6, 2)
+)
+print(trim_check)
+
+# Quality profiles post-trimming
+plotQualityProfile(trim_files[1:4])   # H2O
+plotQualityProfile(trim_files[5:9])   # MIX-1
+plotQualityProfile(trim_files[10:14]) # MIX-2
+plotQualityProfile(trim_files[15:19]) # MIX-3
+```
+
+
+**Interpretation Notes**
+
+MIX3 group samples show lower size retention ratios compared to MIX 1 and 2. 
+Need to investigate the read count output. MIX3-4 specifically a standout in 
+low depth and a small trimmed file size. H2O sample 5 is large event when trimmed, 
+pointing towards anomalous raw depth reading. 
+
+
+## Post Trim Read Counts and Retention
+
+```{r read_counts}
+count_reads <- function(filepath) {
+  length(readLines(gzcon(file(filepath, "rb")))) / 4
+}
+
+read_counts <- data.frame(
+  sample     = sample_names,
+  raw_reads  = sapply(raw_files, count_reads),
+  trim_reads = sapply(trim_files, count_reads)
+) %>%
+  mutate(
+    pct_retained = round(trim_reads / raw_reads * 100, 1),
+    group = case_when(
+      grepl("H2O",   sample, ignore.case = TRUE) ~ "H2O",
+      grepl("MIX-1", sample, ignore.case = TRUE) ~ "MIX1",
+      grepl("MIX-2", sample, ignore.case = TRUE) ~ "MIX2",
+      grepl("MIX-3", sample, ignore.case = TRUE) ~ "MIX3"
+    )
+  )
+
+print(read_counts)
+```
+
+
+**Interpretation Notes**
+
+MIX 3 retention is bad. Only one sample in the 40% retention rate range. The rest are the 30% range. Since this appears to be a group level pattern, let's do some diagnostic checks to check primer trimming and checking read lengths again. 
+
+```{r mix3_diagnostic}
+library(ShortRead)
+
+# Read length distribution for MIX-3-1 (worst retention) vs MIX-1-1 (normal)
+mix3_reads <- readFastq(raw_files[15]) # MIX-3-1
+mix1_reads <- readFastq(raw_files[5])  # MIX-1-1
+
+mix3_lengths <- width(sread(mix3_reads))
+mix1_lengths <- width(sread(mix1_reads))
+
+cat("MIX-3-1 read length summary:\n")
+print(summary(mix3_lengths))
+
+cat("\nMIX-1-1 read length summary:\n")
+print(summary(mix1_lengths))
+
+# Primer hits in MIX-3-1
+cat("\nPrimer hits in MIX-3-1:\n")
+rbind(
+  FWD.ForwardReads = primerHits(FWD.orients[["Forward"]], raw_files[15]),
+  FWD.ReverseReads = primerHits(FWD.orients[["RevComp"]], raw_files[15]),
+  REV.ForwardReads = primerHits(REV.orients[["Forward"]], raw_files[15]),
+  REV.ReverseReads = primerHits(REV.orients[["RevComp"]], raw_files[15])
+)
+```
+
+The read length distributions are essentially identical between MIX-3-1 and MIX-1-1 (median ~1526 bp both), so the reads themselves are fine. The problem is the primer hits. 74 primer hots across 139,000(ish) reads is marginal. Since *--discard-untrimmed* drops any read where primers aren't found, this directly explains the low retention.
+
+Let's compare them to Mix 1
+
+```{r mix3_primer_compare}
+# Direct comparison — primer hits MIX-1-1 vs all MIX-3 samples
+cat("Primer hits in MIX-1-1 (reference):\n")
+rbind(
+  FWD.ForwardReads = primerHits(FWD.orients[["Forward"]], raw_files[5]),
+  FWD.ReverseReads = primerHits(FWD.orients[["RevComp"]], raw_files[5]),
+  REV.ForwardReads = primerHits(REV.orients[["Forward"]], raw_files[5]),
+  REV.ReverseReads = primerHits(REV.orients[["RevComp"]], raw_files[5])
+)
+
+# Check all MIX-3 samples
+for (i in 15:19) {
+  cat("\nPrimer hits in", sample_names[i], ":\n")
+  print(rbind(
+    FWD.ForwardReads = primerHits(FWD.orients[["Forward"]], raw_files[i]),
+    FWD.ReverseReads = primerHits(FWD.orients[["RevComp"]], raw_files[i]),
+    REV.ForwardReads = primerHits(REV.orients[["Forward"]], raw_files[i]),
+    REV.ReverseReads = primerHits(REV.orients[["RevComp"]], raw_files[i])
+  ))
+}
+```
+
+***QC Decision Log***
+  **Decision**
+    1. H2O-5 retained through decontam
+    2. MIX-3 low post-trim retention (32.7-47.2%)",
+    3. MIX-3-4 low raw depth",
+    4. Proceed with all 19 samples to DADA2
+
+  **Rationale**
+    1. Anomalously high raw reads (294,246) consistent with reagent contamination in non-sterile environment; retain for contaminant ASV identification (Davis et al., 2018, Microbiome)
+    2. Read length distributions identical to MIX-1/2 (median ~1526 bp); pattern consistent across all 5 MIX-3 samples suggesting library prep differences; reads are high quality HiFi CCS
+    3. 28,015 raw reads -> 9,728 post-trim; lowest biological sample in dataset; flag for rarefaction threshold assessment in Notebook 05
+    4. No samples meet exclusion criteria at QC stage; all groups retain minimum n=5 replicates
+  
+  **Impact**
+    1. H2O-5 excluded from diversity and DA analyses post-decontam
+    2. MIX-3 samples monitored closely through DADA2 filtering and rarefaction; wet lab team notified of observation
+    3. MIX-3-4 may fall below rarefaction threshold; assess in Notebook 05
+    4. 19 samples forward to 02_dada2_processing.Rmd
+
+# Session Information 
+
+```{r session_info}
+sessionInfo()
+```
+
+
