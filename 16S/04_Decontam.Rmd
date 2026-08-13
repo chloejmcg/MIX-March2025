@@ -1,0 +1,275 @@
+---
+title: "04_Decontam"
+author: "Chloe J McGovern"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    css: "hpcstyles.css"
+    code_folding: show
+    theme: spacelab
+    highlight: pygments
+    keep_md: no
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+  keep_md: true  
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  cache      = TRUE,
+  fig.path   = "/home/cjm423/MIX-March2025/Figures/16S/04_Decontam/",
+  fig.width  = 12,
+  fig.height = 8,
+  dev        = "png",
+  dpi        = 300
+)
+```
+
+## Overview
+
+Identification and removal of contaminant ASVs using the `decontam` 
+package (Davis et al., 2018, *Microbiome*). Contaminants are identified 
+using the prevalence-based method, which flags ASVs that occur more 
+frequently in negative controls (H2O) than in biological samples. 
+H2O-5 is retained for contaminant identification but excluded from 
+all downstream analyses per QC decisions documented in notebook 01.
+
+## Libraries
+```{r libraries}
+library(phyloseq)
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+
+#BiocManager::install("decontam")
+library(decontam)
+library(tidyverse)
+library(patchwork)
+
+source("/home/cjm423/MIX-March2025/Code/colors.R")
+```
+
+## Load Data
+```{r load_data}
+project_dir <- "~/MIX-March2025"
+data_dir    <- file.path(project_dir, "Data/16S")
+
+# Load pre-decontam phyloseq from 03_Taxonomy.Rmd
+ps <- readRDS(file.path(data_dir, "ps_predecontam.rds"))
+
+cat("Pre-decontam phyloseq:\n")
+print(ps)
+
+# Confirm negative controls are flagged correctly
+cat("\nNegative control samples:\n")
+print(sample_data(ps)$is_control)
+```
+
+## Inspect Library Sizes
+
+Library size is used by decontam's prevalence method to identify
+contaminants — contaminants tend to be more prevalent in low-biomass
+negative controls (Davis et al., 2018, *Microbiome*).
+```{r library_sizes}
+# Add library size to sample data
+sample_data(ps)$lib_size <- sample_sums(ps)
+
+lib_df <- data.frame(sample_data(ps)) %>%
+  mutate(
+    sample     = rownames(.),
+    is_control = as.logical(is_control)
+  ) %>%
+  arrange(lib_size)
+
+ggplot(lib_df, aes(x = reorder(sample, lib_size),
+                    y = lib_size,
+                    fill = is_control)) +
+  geom_col() +
+  scale_fill_manual(
+    values = c("FALSE" = "steelblue", "TRUE" = "tomato"),
+    labels = c("Biological", "Negative Control")
+  ) +
+  labs(
+    title = "Library Size per Sample — MIX-March2025",
+    x     = "Sample",
+    y     = "Read Count",
+    fill  = "Sample Type"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    text        = element_text(family = "Times New Roman")
+  )
+```
+
+## Identify Contaminants — Prevalence Method
+
+The prevalence method compares the prevalence of each ASV in 
+negative controls vs biological samples. ASVs with a decontam 
+score > 0.5 are flagged as contaminants (Davis et al., 2018, 
+*Microbiome*).
+```{r identify_contaminants}
+# Run decontam prevalence method
+contamdf <- isContaminant(
+  ps,
+  method    = "prevalence",
+  neg       = "is_control",
+  threshold = 0.5
+)
+
+# Summary
+cat("Total ASVs:", nrow(contamdf), "\n")
+cat("Contaminant ASVs identified:", sum(contamdf$contaminant), "\n")
+cat("Non-contaminant ASVs:", sum(!contamdf$contaminant), "\n")
+
+# View contaminant ASVs with taxonomy
+contam_asvs <- rownames(contamdf)[contamdf$contaminant]
+cat("\nContaminant ASV taxonomy:\n")
+print(tax_table(ps)[contam_asvs, ])
+```
+
+## Visualize Contaminant Prevalence
+```{r contaminant_plot}
+# Validate phyloseq object
+head(taxa_names(ps))
+head(rownames(tax_table(ps)))
+head(colnames(otu_table(ps)))
+class(sample_data(ps)$is_control)
+validObject(ps)
+
+# Presence/absence transform
+ps_pa <- transform_sample_counts(ps, function(x) 1*(x > 0))
+
+# Split into controls and biological samples
+ps_pa_neg <- prune_samples(
+  sample_data(ps_pa)$is_control == TRUE, ps_pa)
+ps_pa_pos <- prune_samples(
+  sample_data(ps_pa)$is_control == FALSE, ps_pa)
+
+# Build prevalence dataframe
+prev_df <- data.frame(
+  pa_neg      = taxa_sums(ps_pa_neg),
+  pa_pos      = taxa_sums(ps_pa_pos),
+  contaminant = contamdf$contaminant
+)
+
+ggplot(prev_df, aes(x = pa_neg, y = pa_pos, color = contaminant)) +
+  geom_point(alpha = 0.7, size = 3) +
+  scale_color_manual(
+    values = c("FALSE" = "steelblue", "TRUE" = "tomato"),
+    labels = c("Non-contaminant", "Contaminant")
+  ) +
+  labs(
+    title = "Decontam Prevalence Plot",
+    x     = "Prevalence in Negative Controls",
+    y     = "Prevalence in Biological Samples",
+    color = "Classification"
+  ) +
+  theme_bw() +
+  theme(text = element_text(family = "Times New Roman"))
+```
+
+## Remove Contaminants and Negative Controls
+```{r remove_contaminants}
+# Remove contaminant ASVs
+ps_decontam <- prune_taxa(!contamdf$contaminant, ps)
+
+cat("ASVs before decontam:", ntaxa(ps), "\n")
+cat("ASVs after decontam:", ntaxa(ps_decontam), "\n")
+
+# Remove all H2O negative control samples
+ps_clean <- prune_samples(
+  sample_data(ps_decontam)$is_control == FALSE,
+  ps_decontam)
+
+# Remove ASVs now zero across all biological samples
+ps_clean <- prune_taxa(taxa_sums(ps_clean) > 0, ps_clean)
+
+cat("\nPost-decontam phyloseq (biological samples only):\n")
+print(ps_clean)
+
+sort(sample_sums(ps_clean)) #MIX-3-4 at 5,009 sits well below everything else, investigate rarefaction curves to see plateau before deciding to drop a replicate
+
+
+```
+
+## Compare Composition Pre vs Post Decontam
+```{r pre_post_comparison, fig.height=10}
+# Biological samples only, pre-decontam
+ps_bio <- prune_samples(
+  sample_data(ps)$is_control == FALSE, ps)
+
+ps_bio_rel   <- transform_sample_counts(ps_bio,
+                                         function(x) x / sum(x))
+ps_clean_rel <- transform_sample_counts(ps_clean,
+                                         function(x) x / sum(x))
+
+pre_long <- psmelt(ps_bio_rel) %>%
+  mutate(status = "Pre-decontam",
+         Phylum = ifelse(is.na(Phylum), "Unclassified", Phylum))
+
+post_long <- psmelt(ps_clean_rel) %>%
+  mutate(status = "Post-decontam",
+         Phylum = ifelse(is.na(Phylum), "Unclassified", Phylum))
+
+combined <- bind_rows(pre_long, post_long) %>%
+  mutate(
+    status = factor(status, levels = c("Pre-decontam", "Post-decontam")),
+    group  = factor(group, levels = c("MIX1", "MIX2", "MIX3"))
+  )
+
+top_phyla <- combined %>%
+  group_by(Phylum) %>%
+  summarise(mean_abund = mean(Abundance)) %>%
+  arrange(desc(mean_abund)) %>%
+  slice_head(n = 10) %>%
+  pull(Phylum)
+
+combined <- combined %>%
+  mutate(Phylum = ifelse(Phylum %in% top_phyla, Phylum, "Other"))
+
+ggplot(combined, aes(x = Sample, y = Abundance, fill = Phylum)) +
+  geom_bar(stat = "identity") +
+  facet_grid(status ~ group, scales = "free_x", space = "free") +
+  scale_fill_brewer(palette = "Paired") +
+  labs(
+    title = "Phylum Composition Pre vs Post Decontam",
+    x     = "Sample",
+    y     = "Relative Abundance",
+    fill  = "Phylum"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+    text        = element_text(family = "Times New Roman")
+  )
+```
+
+## Save Clean Phyloseq Object
+```{r save_clean}
+saveRDS(ps_clean, file.path(data_dir, "ps_clean.rds"))
+
+cat("Clean phyloseq saved to Data/16S/ps_clean.rds\n")
+cat("Samples:", nsamples(ps_clean), "\n")
+cat("ASVs:", ntaxa(ps_clean), "\n")
+
+# Save contaminant ASV list for methods reporting
+write.csv(
+  as.data.frame(tax_table(ps)[contam_asvs, ]),
+  file.path(data_dir, "contaminant_asvs.csv"),
+  row.names = TRUE
+)
+cat("Contaminant ASV list saved to Data/16S/contaminant_asvs.csv\n")
+```
+
+## Session Info
+```{r session_info}
+sessionInfo()
+```

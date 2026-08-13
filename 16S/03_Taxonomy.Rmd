@@ -1,0 +1,294 @@
+---
+title: "03_Taxonomy"
+author: "Chloe J McGovern"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    css: "hpcstyles.css"
+    code_folding: show
+    theme: spacelab
+    highlight: pygments
+    keep_md: no
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+  keep_md: true  
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  cache      = TRUE,
+  fig.path   = "/home/cjm423/MIX-March2025/Figures/16S/03_Taxonomy/",
+  fig.width  = 12,
+  fig.height = 8,
+  dev        = "png",
+  dpi        = 300
+)
+```
+
+## Overview
+
+Taxonomic composition analysis of PacBio HiFi full-length 16S rRNA 
+gene amplicon data from MIX caecal samples. ASVs were assigned to 
+genus level using the SILVA r138.1 reference database (Quast et al., 
+2013, *Nucleic Acids Research*). Composition is visualized at phylum 
+and genus level prior to decontamination.
+
+## Libraries
+```{r libraries}
+library(dada2)
+library(phyloseq)
+library(tidyverse)
+library(patchwork)
+
+# Source project color scheme
+source("~/MIX-March2025/Code/colors.R")
+```
+
+## Load Data
+```{r load_data}
+project_dir <- "~/MIX-March2025"
+data_dir    <- file.path(project_dir, "Data/16S")
+
+# Load DADA2 outputs from 02_DADA2.Rmd
+seqtab <- readRDS(file.path(data_dir, "seqtab_nochim.rds"))
+taxa   <- readRDS(file.path(data_dir, "taxa.rds"))
+
+# Load metadata
+metadata <- read.csv(file.path(data_dir, "MIX_metadata.csv"),
+                     row.names = 1)
+
+cat("Samples:", nrow(seqtab), "\n")
+cat("ASVs:", ncol(seqtab), "\n")
+cat("Taxa rows:", nrow(taxa), "\n")
+cat("Metadata sample_ids:\n")
+print(metadata$sample_id)
+```
+
+## Build Phyloseq Object
+```{r build_phyloseq}
+# Align sample names between seqtab and metadata
+rownames(seqtab) <- sub("\\.fastq\\.gz$", "", rownames(seqtab))
+
+# Check rownames
+cat("seqtab rownames:\n")
+print(rownames(seqtab))
+
+cat("\nmetadata colnames:\n")
+print(colnames(metadata))
+
+cat("\nmetadata head:\n")
+print(head(metadata))
+
+# Add sample_id as proper column if needed
+metadata <- metadata %>%
+  rownames_to_column(var = "sample_id")
+
+# Verify
+print(head(metadata))
+print(colnames(metadata))
+
+# Overwrite CSV with sample_id as proper column
+write.csv(metadata,
+          file.path(data_dir, "MIX_metadata.csv"),
+          row.names = FALSE)
+
+# Confirm rownames match
+stopifnot(all(rownames(seqtab) %in% metadata$sample_id))
+
+# Set metadata rownames for phyloseq
+meta_ps <- metadata
+rownames(meta_ps) <- meta_ps$sample_id
+
+# Build phyloseq object
+# McMurdie & Holmes 2013, PLOS ONE
+ps <- phyloseq(
+  otu_table(seqtab, taxa_are_rows = FALSE),
+  tax_table(taxa),
+  sample_data(meta_ps)
+)
+
+# Replace ASV sequences with short IDs
+taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
+
+cat("Phyloseq object:\n")
+print(ps)
+```
+
+## Overview of Taxonomic Assignment
+```{r taxa_overview}
+tax_df <- as.data.frame(tax_table(ps))
+
+classification_rates <- data.frame(
+  rank    = c("Kingdom", "Phylum", "Class", "Order",
+              "Family", "Genus"),
+  assigned = c(
+    sum(!is.na(tax_df$Kingdom)),
+    sum(!is.na(tax_df$Phylum)),
+    sum(!is.na(tax_df$Class)),
+    sum(!is.na(tax_df$Order)),
+    sum(!is.na(tax_df$Family)),
+    sum(!is.na(tax_df$Genus))
+  ),
+  total = nrow(tax_df)
+) %>%
+  mutate(pct_assigned = round(assigned / total * 100, 1))
+
+print(classification_rates)
+```
+
+## Phylum-Level Composition
+```{r phylum_composition}
+# Aggregate to phylum level
+ps_phylum <- tax_glom(ps, taxrank = "Phylum", NArm = FALSE)
+
+# Convert to relative abundance
+ps_phylum_rel <- transform_sample_counts(ps_phylum,
+                                          function(x) x / sum(x))
+
+# Melt to long format
+phylum_long <- psmelt(ps_phylum_rel) %>%
+  mutate(
+    Phylum = ifelse(is.na(Phylum), "Unclassified", Phylum),
+    group  = factor(group, levels = c("H2O", "MIX1", "MIX2", "MIX3"))
+  )
+
+# Keep top 10 phyla, collapse rest to "Other"
+top_phyla <- phylum_long %>%
+  group_by(Phylum) %>%
+  summarise(mean_abund = mean(Abundance)) %>%
+  arrange(desc(mean_abund)) %>%
+  slice_head(n = 10) %>%
+  pull(Phylum)
+
+phylum_long <- phylum_long %>%
+  mutate(Phylum = ifelse(Phylum %in% top_phyla, Phylum, "Other"))
+
+ggplot(phylum_long, aes(x = Sample, y = Abundance, fill = Phylum)) +
+  geom_bar(stat = "identity") +
+  facet_grid(~ group, scales = "free_x", space = "free") +
+  scale_fill_brewer(palette = "Paired") +
+  labs(
+    title = "Phylum-Level Relative Abundance",
+    x     = "Sample",
+    y     = "Relative Abundance",
+    fill  = "Phylum"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x     = element_text(angle = 45, hjust = 1, size = 7),
+    legend.position = "right"
+  )
+```
+
+## Genus-Level Composition
+```{r genus_composition, fig.width=8, fig.height=6, dpi=300}
+# Aggregate to genus level
+ps_genus <- tax_glom(ps, taxrank = "Genus", NArm = FALSE)
+
+# Convert to relative abundance
+ps_genus_rel <- transform_sample_counts(ps_genus,
+                                         function(x) x / sum(x))
+
+# Melt to long format
+genus_long <- psmelt(ps_genus_rel) %>%
+  mutate(
+    Genus = ifelse(is.na(Genus), "Unclassified", Genus),
+    group = factor(group, levels = c("H2O", "MIX1", "MIX2", "MIX3"))
+  )
+
+# Keep top 15 genera
+top_genera <- genus_long %>%
+  group_by(Genus) %>%
+  summarise(mean_abund = mean(Abundance)) %>%
+  arrange(desc(mean_abund)) %>%
+  slice_head(n = 15) %>%
+  pull(Genus)
+
+genus_long <- genus_long %>%
+  mutate(Genus = ifelse(Genus %in% top_genera, Genus, "Other"))
+
+ggplot(genus_long, aes(x = Sample, y = Abundance, fill = Genus)) +
+  geom_bar(stat = "identity") +
+  facet_grid(~ group, scales = "free_x", space = "free") +
+  scale_fill_manual(values = colorRampPalette(
+    RColorBrewer::brewer.pal(12, "Paired"))(16)) +
+  labs(
+    title = "Genus-Level Relative Abundance",
+    x     = "Sample",
+    y     = "Relative Abundance",
+    fill  = "Genus"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x     = element_text(angle = 45, hjust = 1, size = 10),
+    legend.position = "right",
+    text            = element_text(family = "Times New Roman"),
+    plot.title      = element_text(family = "Times New Roman"),
+    axis.title      = element_text(family = "Times New Roman"),
+    legend.text     = element_text(family = "Times New Roman"),
+    legend.title    = element_text(family = "Times New Roman"),
+    strip.text      = element_text(family = "Times New Roman")
+  )
+```
+
+## Mean Relative Abundance by Treatment Group
+```{r group_composition, fig.height=10}
+# Summarize genus abundance by treatment group
+# Excludes H2O controls
+genus_group <- genus_long %>%
+  filter(group != "H2O") %>%
+  group_by(group, Genus) %>%
+  summarise(mean_abund = mean(Abundance), .groups = "drop")
+
+ggplot(genus_group, aes(x = group, y = mean_abund, fill = group)) +
+  geom_col() +
+  facet_wrap(~ Genus, scales = "free_y", ncol = 4) +
+  scale_fill_manual(values = mix_colors) +
+  labs(
+    title = "Mean Genus Abundance by MIX Treatment Group",
+    x     = "Treatment",
+    y     = "Mean Relative Abundance",
+    fill  = "Group"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Save Phyloseq Object
+```{r save_phyloseq}
+saveRDS(ps, file.path(data_dir, "ps_predecontam.rds"))
+cat("Phyloseq object saved to Data/16S/ps_predecontam.rds\n")
+```
+
+###Check same ASV for lactiplanti before decontam of water control and treatments
+
+```{r check-before-decon}
+lacto_asvs <- taxa_names(ps)[!is.na(tax_table(ps)[, "Genus"]) & tax_table(ps)[, "Genus"] == "Lactiplantibacillus"]
+length(lacto_asvs)  # should be 15
+
+otu_table(ps)[, lacto_asvs] %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("sample") %>%
+  pivot_longer(-sample, names_to = "ASV", values_to = "reads") %>%
+  left_join(as(sample_data(ps), "data.frame") %>% tibble::rownames_to_column("sample"),
+             by = "sample") %>%
+  group_by(ASV, group) %>%
+  summarise(mean_reads = mean(reads), .groups = "drop") %>%
+  filter(mean_reads > 0) %>%
+  pivot_wider(names_from = group, values_from = mean_reads, values_fill = 0)
+```
+
+13 of 15 Lactiplantibacillus ASVs (ASV1–ASV14, excluding the two singleton-driven ASV75/ASV77) show up in every group, including H2O
+
+## Session Info
+```{r session_info}
+sessionInfo()
+```

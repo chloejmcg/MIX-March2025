@@ -24,3 +24,6 @@ Data/16S/reference/
 # PICRUSt2
 Data/16S/picrust2_output/
 Data/16S/picrust2_input/
+*_cache/
+Data/16S/
+Code/logs/

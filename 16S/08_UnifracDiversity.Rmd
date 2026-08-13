@@ -1,0 +1,322 @@
+---
+title: "08_UnifracDiversity"
+author: "Chloe J McGovern"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    css: "hpcstyles.css"
+    code_folding: show
+    theme: spacelab
+    highlight: pygments
+    keep_md: no
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+  keep_md: true  
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  cache      = TRUE,
+  fig.path   = "/home/cjm423/MIX-March2025/Figures/16S/08_UniFrac/",
+  fig.width  = 12,
+  fig.height = 8,
+  dev        = "png",
+  dpi        = 300
+)
+```
+
+# Overview
+
+Phylogeny-aware beta diversity analysis using UniFrac distance metrics
+(Lozupone & Knight, 2005, *Applied and Environmental Microbiology*).
+Unweighted UniFrac captures presence/absence of lineages while weighted
+UniFrac incorporates relative abundance. Both metrics are compared to
+Bray-Curtis dissimilarity from `05_Phyloseq.Rmd`. PERMANOVA tests
+whether treatment group significantly explains community variation
+(Anderson, 2001, *Australian Ecology*).
+
+## Libraries and Set Up Environment
+```{r libraries}
+library(phyloseq)
+library(vegan)
+library(tidyverse)
+library(patchwork)
+
+source("/home/cjm423/MIX-March2025/Code/colors.R")
+
+mix_colors
+```
+
+## Load Data
+```{r load_data}
+project_dir <- "/home/cjm423/MIX-March2025"
+data_dir    <- file.path(project_dir, "Data/16S")
+
+# Load rarefied phyloseq with tree from 07_PhylogeneticTree.Rmd
+ps_rare_tree <- readRDS(file.path(data_dir, "ps_rare_tree.rds"))
+
+cat("Rarefied phyloseq with tree:\n")
+print(ps_rare_tree)
+
+cat("\nTree present:", !is.null(phy_tree(ps_rare_tree)), "\n")
+cat("Tree tips:", length(phy_tree(ps_rare_tree)$tip.label), "\n")
+
+# Extract metadata
+meta_df <- data.frame(sample_data(ps_rare_tree)) %>%
+  mutate(group = factor(group, levels = c("MIX1", "MIX2", "MIX3")))
+```
+
+## Calculate UniFrac Distances
+```{r unifrac_distances}
+# Unweighted UniFrac — presence/absence with phylogeny
+# Lozupone & Knight 2005, Applied and Environmental Microbiology
+cat("Calculating unweighted UniFrac...\n")
+uw_unifrac <- phyloseq::distance(ps_rare_tree, method = "unifrac",
+                                  weighted = FALSE)
+
+# Weighted UniFrac — abundance-weighted with phylogeny
+cat("Calculating weighted UniFrac...\n")
+w_unifrac <- phyloseq::distance(ps_rare_tree, method = "unifrac",
+                                 weighted = TRUE)
+
+# Bray-Curtis for comparison
+cat("Calculating Bray-Curtis...\n")
+bray_dist <- phyloseq::distance(ps_rare_tree, method = "bray")
+
+cat("\nAll distance matrices calculated\n")
+cat("Samples:", nsamples(ps_rare_tree), "\n")
+```
+
+## NMDS Ordination — Unweighted UniFrac
+```{r nmds_unwunifrac}
+set.seed(123)
+nmds_uw <- ordinate(ps_rare_tree, method = "NMDS",
+                     distance = uw_unifrac)
+
+cat("Unweighted UniFrac NMDS stress:", nmds_uw$stress, "\n")
+
+p_uw <- plot_ordination(ps_rare_tree, nmds_uw, color = "group") +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  stat_ellipse(aes(group = group), level = 0.95) +
+  labs(
+    title = paste0("Unweighted UniFrac NMDS (stress = ",
+                   round(nmds_uw$stress, 3), ")"),
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    text = element_text(family = "Times New Roman", size = 16)
+  )
+
+print(p_uw)
+```
+
+## NMDS Ordination — Weighted UniFrac
+```{r nmds_wunifrac}
+set.seed(123)
+nmds_w <- ordinate(ps_rare_tree, method = "NMDS",
+                    distance = w_unifrac)
+
+cat("Weighted UniFrac NMDS stress:", nmds_w$stress, "\n")
+
+p_w <- plot_ordination(ps_rare_tree, nmds_w, color = "group") +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  stat_ellipse(aes(group = group), level = 0.95) +
+  labs(
+    title = paste0("Weighted UniFrac NMDS (stress = ",
+                   round(nmds_w$stress, 3), ")"),
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    text = element_text(family = "Times New Roman", size = 16)
+  )
+
+print(p_w)
+```
+
+## PCoA Ordination — All Three Metrics
+```{r pcoa_comparison, fig.height=12}
+pcoa_uw <- ordinate(ps_rare_tree, method = "PCoA",
+                     distance = uw_unifrac)
+pcoa_w  <- ordinate(ps_rare_tree, method = "PCoA",
+                     distance = w_unifrac)
+pcoa_bc <- ordinate(ps_rare_tree, method = "PCoA",
+                     distance = bray_dist)
+
+get_var <- function(pcoa) {
+  eig <- pcoa$values$Eigenvalues
+  round(eig / sum(eig) * 100, 1)
+}
+
+var_uw <- get_var(pcoa_uw)
+var_w  <- get_var(pcoa_w)
+var_bc <- get_var(pcoa_bc)
+
+p_pcoa_uw <- plot_ordination(ps_rare_tree, pcoa_uw,
+                              color = "group") +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  stat_ellipse(aes(group = group), level = 0.95) +
+  labs(
+    title = "Unweighted UniFrac PCoA",
+    x     = paste0("PC1 (", var_uw[1], "%)"),
+    y     = paste0("PC2 (", var_uw[2], "%)"),
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(text = element_text(family = "Times New Roman", size = 14))
+
+p_pcoa_w <- plot_ordination(ps_rare_tree, pcoa_w,
+                             color = "group") +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  stat_ellipse(aes(group = group), level = 0.95) +
+  labs(
+    title = "Weighted UniFrac PCoA",
+    x     = paste0("PC1 (", var_w[1], "%)"),
+    y     = paste0("PC2 (", var_w[2], "%)"),
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(text = element_text(family = "Times New Roman", size = 14))
+
+p_pcoa_bc <- plot_ordination(ps_rare_tree, pcoa_bc,
+                              color = "group") +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  stat_ellipse(aes(group = group), level = 0.95) +
+  labs(
+    title = "Bray-Curtis PCoA",
+    x     = paste0("PC1 (", var_bc[1], "%)"),
+    y     = paste0("PC2 (", var_bc[2], "%)"),
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(text = element_text(family = "Times New Roman", size = 14))
+
+p_pcoa_uw / p_pcoa_w / p_pcoa_bc
+```
+
+## PERMANOVA — All Three Metrics
+```{r permanova_all}
+set.seed(123)
+
+permanova_uw <- adonis2(
+  uw_unifrac ~ group,
+  data         = meta_df,
+  permutations = 999
+)
+
+permanova_w <- adonis2(
+  w_unifrac ~ group,
+  data         = meta_df,
+  permutations = 999
+)
+
+permanova_bc <- adonis2(
+  bray_dist ~ group,
+  data         = meta_df,
+  permutations = 999
+)
+
+cat("=== Unweighted UniFrac PERMANOVA ===\n")
+print(permanova_uw)
+
+cat("\n=== Weighted UniFrac PERMANOVA ===\n")
+print(permanova_w)
+
+cat("\n=== Bray-Curtis PERMANOVA ===\n")
+print(permanova_bc)
+
+# Summary table
+permanova_summary <- data.frame(
+  metric  = c("Unweighted UniFrac", "Weighted UniFrac",
+               "Bray-Curtis"),
+  R2      = c(permanova_uw$R2[1], permanova_w$R2[1],
+               permanova_bc$R2[1]),
+  F_stat  = c(permanova_uw$F[1], permanova_w$F[1],
+               permanova_bc$F[1]),
+  p_value = c(permanova_uw$`Pr(>F)`[1], permanova_w$`Pr(>F)`[1],
+               permanova_bc$`Pr(>F)`[1])
+) %>%
+  mutate(
+    R2      = round(R2, 3),
+    F_stat  = round(F_stat, 3),
+    p_value = round(p_value, 3),
+    sig     = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01  ~ "**",
+      p_value < 0.05  ~ "*",
+      p_value < 0.1   ~ ".",
+      TRUE            ~ "NS"
+    )
+  )
+
+cat("\n=== PERMANOVA Summary ===\n")
+print(permanova_summary)
+
+write.csv(permanova_summary,
+          file.path(data_dir, "permanova_summary.csv"),
+          row.names = FALSE)
+```
+
+## Betadispersion — All Three Metrics
+```{r betadisper_all}
+set.seed(123)
+
+betadisp_uw <- betadisper(uw_unifrac, meta_df$group)
+betadisp_w  <- betadisper(w_unifrac, meta_df$group)
+betadisp_bc <- betadisper(bray_dist, meta_df$group)
+
+cat("=== Unweighted UniFrac Betadispersion ===\n")
+print(permutest(betadisp_uw, permutations = 999))
+
+cat("\n=== Weighted UniFrac Betadispersion ===\n")
+print(permutest(betadisp_w, permutations = 999))
+
+cat("\n=== Bray-Curtis Betadispersion ===\n")
+print(permutest(betadisp_bc, permutations = 999))
+```
+
+## Distance Metric Correlation
+
+How correlated are the three distance matrices? High correlation
+confirms results are robust across metrics (Legendre & Legendre,
+2012, *Numerical Ecology*).
+```{r distance_correlation}
+mantel_uw_w  <- vegan::mantel(uw_unifrac, w_unifrac,
+                               method = "pearson", permutations = 999)
+mantel_uw_bc <- vegan::mantel(uw_unifrac, bray_dist,
+                               method = "pearson", permutations = 999)
+mantel_w_bc  <- vegan::mantel(w_unifrac, bray_dist,
+                               method = "pearson", permutations = 999)
+
+cat("Mantel test correlations between distance matrices:\n")
+cat("Unweighted UniFrac vs Weighted UniFrac: r =",
+    round(mantel_uw_w$statistic, 3),
+    "p =", mantel_uw_w$signif, "\n")
+cat("Unweighted UniFrac vs Bray-Curtis: r =",
+    round(mantel_uw_bc$statistic, 3),
+    "p =", mantel_uw_bc$signif, "\n")
+cat("Weighted UniFrac vs Bray-Curtis: r =",
+    round(mantel_w_bc$statistic, 3),
+    "p =", mantel_w_bc$signif, "\n")
+```
+
+## Session Info
+```{r session_info}
+sessionInfo()
+```

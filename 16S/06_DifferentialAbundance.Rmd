@@ -1,0 +1,270 @@
+---
+title: "06_DifferentialAbundance"
+author: "Chloe J McGovern"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    css: "hpcstyles.css"
+    code_folding: show
+    theme: spacelab
+    highlight: pygments
+    keep_md: no
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+  keep_md: true  
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  cache      = TRUE,
+  fig.path   = "/home/cjm423/MIX-March2025/Figures/16S/06_DifferentialAbundance/",
+  fig.width  = 12,
+  fig.height = 8,
+  dev        = "png",
+  dpi        = 300
+)
+```
+
+## Overview
+
+Differential abundance analysis of MIX caecal microbiome at genus 
+level using DESeq2 (Love et al., 2014, *Genome Biology*). Pairwise 
+comparisons between MIX treatment groups are performed alongside a 
+likelihood ratio test (LRT) to detect dose-dependent trends across 
+MIX1 → MIX2 → MIX3. Raw (non-rarefied) counts are used as DESeq2 
+implements its own size factor normalization (McMurdie & Holmes, 2014, 
+*PLOS Computational Biology*).
+
+## Libraries
+```{r libraries}
+library(phyloseq)
+library(DESeq2)
+library(tidyverse)
+library(patchwork)
+library(pheatmap)
+
+source("/home/cjm423/MIX-March2025/Code/colors.R")
+
+# MIX group colors for 16S analysis
+mix_colors
+```
+
+## Load Data
+```{r load_data}
+project_dir <- "/home/cjm423/MIX-March2025"
+data_dir    <- file.path(project_dir, "Data/16S")
+
+# Load clean NON-rarefied phyloseq — DESeq2 uses raw counts
+ps_clean <- readRDS(file.path(data_dir, "ps_clean.rds"))
+
+cat("Clean phyloseq (non-rarefied):\n")
+print(ps_clean)
+```
+
+## Aggregate to Genus Level
+```{r genus_aggregate}
+# Aggregate ASVs to genus level
+# McMurdie & Holmes 2013, PLOS ONE
+ps_genus <- tax_glom(ps_clean, taxrank = "Genus", NArm = FALSE)
+
+# Remove unclassified genera
+ps_genus <- subset_taxa(ps_genus, !is.na(Genus))
+
+cat("Genera after aggregation:", ntaxa(ps_genus), "\n")
+cat("Samples:", nsamples(ps_genus), "\n")
+
+# Set group as factor with explicit ordering for dose-response
+sample_data(ps_genus)$group <- factor(
+  sample_data(ps_genus)$group,
+  levels = c("MIX1", "MIX2", "MIX3")
+)
+```
+
+## Convert to DESeq2 Object
+```{r deseq2_setup}
+# Convert phyloseq to DESeq2
+dds <- phyloseq_to_deseq2(ps_genus, ~ group)
+
+# Estimate size factors using poscounts method
+dds <- estimateSizeFactors(dds, type = "poscounts")
+
+cat("DESeq2 object created\n")
+cat("Genera:", nrow(dds), "\n")
+cat("Samples:", ncol(dds), "\n")
+```
+
+## Pairwise Comparisons — DESeq2 Wald Test
+```{r pairwise_deseq2}
+# Run DESeq2 with Wald test for pairwise comparisons
+dds_wald <- DESeq(dds, test = "Wald", fitType = "parametric")
+
+# Function to extract and format results
+get_results <- function(dds, contrast, alpha = 0.05) {
+  res <- results(
+    dds,
+    contrast      = contrast,
+    alpha         = alpha,
+    pAdjustMethod = "BH"
+  )
+
+  res_df <- as.data.frame(res) %>%
+    rownames_to_column("taxon") %>%
+    left_join(
+      as.data.frame(tax_table(ps_genus)) %>%
+        rownames_to_column("taxon") %>%
+        select(taxon, Genus, Family, Phylum),
+      by = "taxon"
+    ) %>%
+    arrange(padj) %>%
+    filter(!is.na(padj))
+
+  return(res_df)
+}
+
+# MIX1 vs MIX2
+res_1v2 <- get_results(dds_wald, c("group", "MIX2", "MIX1"))
+cat("MIX1 vs MIX2 — significant genera (padj < 0.05):",
+    sum(res_1v2$padj < 0.05, na.rm = TRUE), "\n")
+
+# MIX1 vs MIX3
+res_1v3 <- get_results(dds_wald, c("group", "MIX3", "MIX1"))
+cat("MIX1 vs MIX3 — significant genera (padj < 0.05):",
+    sum(res_1v3$padj < 0.05, na.rm = TRUE), "\n")
+
+# MIX2 vs MIX3
+res_2v3 <- get_results(dds_wald, c("group", "MIX3", "MIX2"))
+cat("MIX2 vs MIX3 — significant genera (padj < 0.05):",
+    sum(res_2v3$padj < 0.05, na.rm = TRUE), "\n")
+
+# Save all pairwise results
+write.csv(res_1v2, file.path(data_dir, "DA_MIX1vsMIX2.csv"),
+          row.names = FALSE)
+write.csv(res_1v3, file.path(data_dir, "DA_MIX1vsMIX3.csv"),
+          row.names = FALSE)
+write.csv(res_2v3, file.path(data_dir, "DA_MIX2vsMIX3.csv"),
+          row.names = FALSE)
+```
+
+No significant difference
+
+## Dose-Response Trend Test — DESeq2 LRT
+
+The likelihood ratio test identifies genera whose abundance changes
+systematically across the ordered dose gradient MIX1 → MIX2 → MIX3
+(Love et al., 2014, *Genome Biology*).
+```{r lrt_dose_response}
+# Encode dose as numeric for trend testing
+sample_data(ps_genus)$dose_numeric <- as.numeric(
+  factor(sample_data(ps_genus)$group,
+         levels = c("MIX1", "MIX2", "MIX3"))
+)
+
+# Rebuild DESeq2 object with numeric dose
+dds_lrt <- phyloseq_to_deseq2(ps_genus, ~ dose_numeric)
+dds_lrt <- estimateSizeFactors(dds_lrt, type = "poscounts")
+
+# LRT tests full model (~ dose_numeric) vs reduced (~ 1)
+dds_lrt <- DESeq(
+  dds_lrt,
+  test        = "LRT",
+  reduced     = ~ 1,
+  fitType     = "parametric"
+)
+
+# Extract LRT results
+lrt_res <- results(dds_lrt, alpha = 0.05) %>%
+  as.data.frame() %>%
+  rownames_to_column("taxon") %>%
+  left_join(
+    as.data.frame(tax_table(ps_genus)) %>%
+      rownames_to_column("taxon") %>%
+      select(taxon, Genus, Family, Phylum),
+    by = "taxon"
+  ) %>%
+  arrange(padj) %>%
+  filter(!is.na(padj))
+
+cat("Genera with significant dose-response trend (padj < 0.05):",
+    sum(lrt_res$padj < 0.05, na.rm = TRUE), "\n")
+
+write.csv(lrt_res,
+          file.path(data_dir, "DA_dose_response_LRT.csv"),
+          row.names = FALSE)
+
+head(lrt_res %>% filter(padj < 0.05), 20)
+```
+
+No significant effect dose response.
+
+## Heatmap — Top Genera
+```{r heatmap_top_genera, fig.height=10, fig.width=12, dpi=300}
+ps_genus_rel <- transform_sample_counts(ps_genus,
+                                         function(x) x / sum(x))
+
+top20_genera <- psmelt(ps_genus_rel) %>%
+  mutate(Genus = ifelse(is.na(Genus), "Unclassified", Genus)) %>%
+  group_by(Genus) %>%
+  summarise(mean_abund = mean(Abundance)) %>%
+  arrange(desc(mean_abund)) %>%
+  slice_head(n = 20) %>%
+  pull(Genus)
+
+heatmap_mat <- psmelt(ps_genus_rel) %>%
+  mutate(Genus = ifelse(is.na(Genus), "Unclassified", Genus)) %>%
+  filter(Genus %in% top20_genera) %>%
+  select(Genus, Sample, Abundance) %>%
+  pivot_wider(names_from  = Sample,
+              values_from = Abundance,
+              values_fn   = mean) %>%
+  column_to_rownames("Genus") %>%
+  as.matrix()
+
+heatmap_mat_log <- log10(heatmap_mat + 1e-6)
+
+# Use full group names to prevent legend truncation
+sample_annot <- data.frame(sample_data(ps_genus)) %>%
+  select(group) %>%
+  mutate(group = recode(group,
+    "MIX1" = "MIX1",
+    "MIX2" = "MIX2",
+    "MIX3" = "MIX3"
+  )) %>%
+  arrange(group)
+
+heatmap_mat_log <- heatmap_mat_log[, rownames(sample_annot)]
+
+# Match colors to renamed levels
+heatmap_colors <- mix_colors
+names(heatmap_colors) <- c("MIX1", "MIX2", "MIX3")
+
+pheatmap::pheatmap(
+  heatmap_mat_log,
+  annotation_col    = sample_annot,
+  annotation_colors = list(group = heatmap_colors),
+  cluster_rows      = TRUE,
+  cluster_cols      = FALSE,
+  show_colnames     = TRUE,
+  fontsize_row      = 12,
+  fontsize_col      = 9,
+  color             = colorRampPalette(
+                        c("#2166AC", "#F7F7F7", "#B2182B"))(50),
+  main              = "Top Genera — Log10 Relative Abundance",
+  fontsize          = 10,
+  fontfamily        = "Times New Roman",
+  annotation_legend = TRUE,
+  legend            = TRUE
+)
+```
+
+## Session Info
+```{r session_info}
+sessionInfo()
+```

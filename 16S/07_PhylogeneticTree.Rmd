@@ -1,0 +1,253 @@
+---
+title: "07_PhylogeneticTree"
+author: "Chloe J McGovern"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    css: "hpcstyles.css"
+    code_folding: show
+    theme: spacelab
+    highlight: pygments
+    keep_md: no
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+  keep_md: true  
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  cache      = TRUE,
+  fig.path   = "/home/cjm423/MIX-March2025/Figures/16S/07_PhylogeneticTree/",
+  fig.width  = 12,
+  fig.height = 8,
+  dev        = "png",
+  dpi        = 300
+)
+```
+
+## Overview
+
+Construction of a maximum likelihood phylogenetic tree from MIX 
+caecal ASV sequences. Full-length 16S rRNA sequences (~1465bp) 
+are aligned using DECIPHER (Wright, 2016, *Journal of Statistical 
+Software*) and a phylogenetic tree is inferred using phangorn 
+(Schliep, 2011, *Bioinformatics*). The tree is integrated into 
+the phyloseq object for UniFrac diversity analysis and PICRUSt2 
+functional prediction.
+
+## Libraries
+```{r libraries}
+library(phyloseq)
+library(DECIPHER)
+library(phangorn)
+library(tidyverse)
+
+source("/home/cjm423/MIX-March2025/Code/colors.R")
+
+mix_colors
+```
+
+## Load Data
+```{r load_data}
+project_dir <- "/home/cjm423/MIX-March2025"
+data_dir    <- file.path(project_dir, "Data/16S")
+
+# Load phyloseq objects
+ps_clean <- readRDS(file.path(data_dir, "ps_clean.rds"))
+ps_pre   <- readRDS(file.path(data_dir, "ps_predecontam.rds"))
+
+# Load seqtab to recover sequences
+seqtab <- readRDS(file.path(data_dir, "seqtab_nochim.rds"))
+
+cat("Clean phyloseq:\n")
+print(ps_clean)
+
+# Build sequence lookup using pre-decontam phyloseq as bridge
+seq_lookup <- data.frame(
+  asv_label = taxa_names(ps_pre),
+  sequence  = colnames(seqtab),
+  stringsAsFactors = FALSE
+)
+
+# Extract sequences for ps_clean ASVs only
+seqs_clean <- seq_lookup %>%
+  filter(asv_label %in% taxa_names(ps_clean)) %>%
+  arrange(match(asv_label, taxa_names(ps_clean)))
+
+# Build named DNAStringSet
+dna_seqs <- DNAStringSet(seqs_clean$sequence)
+names(dna_seqs) <- seqs_clean$asv_label
+
+cat("\nASV sequences extracted:", length(dna_seqs), "\n")
+cat("NA names:", sum(is.na(names(dna_seqs))), "\n")
+cat("Example sequence length:", nchar(seqs_clean$sequence[1]), "bp\n")
+```
+
+## Multiple Sequence Alignment
+
+Full-length 16S sequences are aligned using DECIPHER's 
+`AlignSeqs()` function which implements a profile-based 
+progressive alignment optimized for ribosomal RNA sequences
+(Wright, 2016, *Journal of Statistical Software*).
+
+```{r alignment}
+
+# Align sequences using DECIPHER
+alignment <- AlignSeqs(
+  dna_seqs,
+  anchor  = NA,
+  verbose = TRUE
+)
+
+# Ensure names are preserved after alignment
+names(alignment) <- names(dna_seqs)
+
+cat("\nAlignment complete\n")
+cat("Alignment length:", width(alignment)[1], "bp\n")
+cat("NA names:", sum(is.na(names(alignment))), "\n")
+
+# Save alignment
+writeXStringSet(
+  alignment,
+  file.path(data_dir, "ASV_alignment.fasta")
+)
+cat("Alignment saved to Data/16S/ASV_alignment.fasta\n")
+```
+
+## Convert to phyDat Format
+```{r phydat}
+phang_align <- phyDat(
+  as(alignment, "matrix"),
+  type = "DNA"
+)
+
+cat("phyDat object created\n")
+cat("Sequences:", length(phang_align), "\n")
+```
+
+## Build Distance Matrix and Initial Tree
+```{r initial_tree}
+# Calculate pairwise distances — JC69 for NJ starting tree
+dm <- dist.ml(phang_align, model = "JC69")
+
+# Neighbor-joining tree as starting point for ML optimization
+nj_tree <- NJ(dm)
+
+cat("Neighbor-joining tree built\n")
+cat("Tips:", length(nj_tree$tip.label), "\n")
+```
+
+## Maximum Likelihood Tree Optimization
+```{r ml_tree}
+# GTR+G+I model — standard for 16S rRNA phylogenetics
+# GTR accounts for differential substitution rates between bases
+# Gamma distribution models rate variation across sites
+
+fit_initial <- pml(nj_tree, data = phang_align)
+
+set.seed(123)
+fit_ml <- optim.pml(
+  fit_initial,
+  model         = "GTR",
+  optInv        = TRUE,
+  optGamma      = TRUE,
+  rearrangement = "stochastic",
+  control       = pml.control(trace = 0)
+)
+
+cat("\nML tree optimization complete\n")
+cat("Log-likelihood:", fit_ml$logLik, "\n")
+
+saveRDS(fit_ml, file.path(data_dir, "ml_tree_fit.rds"))
+```
+
+## Root and Visualize Tree
+```{r tree_visualization}
+# Midpoint rooting — standard when no outgroup is available
+ml_tree <- midpoint(fit_ml$tree)
+
+cat("Tree is rooted:", is.rooted(ml_tree), "\n")
+cat("Tree tips:", length(ml_tree$tip.label), "\n")
+
+plot(ml_tree,
+     type = "fan",
+     cex  = 0.5,
+     main = "ML Phylogenetic Tree — MIX Caecal ASVs")
+```
+
+## Integrate Tree into Phyloseq Objects
+```{r add_tree_clean}
+# Add tree to clean phyloseq
+ps_tree <- merge_phyloseq(ps_clean, phy_tree(ml_tree))
+
+cat("Clean phyloseq with tree:\n")
+print(ps_tree)
+
+saveRDS(ps_tree, file.path(data_dir, "ps_tree.rds"))
+cat("Clean phyloseq with tree saved to Data/16S/ps_tree.rds\n")
+```
+
+```{r add_tree_rare}
+# Load rarefied phyloseq and add tree
+ps_rare <- readRDS(file.path(data_dir, "ps_rare.rds"))
+
+ps_rare_tree <- merge_phyloseq(ps_rare, phy_tree(ml_tree))
+
+cat("Rarefied phyloseq with tree:\n")
+print(ps_rare_tree)
+
+saveRDS(ps_rare_tree, file.path(data_dir, "ps_rare_tree.rds"))
+cat("Rarefied phyloseq with tree saved to Data/16S/ps_rare_tree.rds\n")
+```
+
+## Export Files for PICRUSt2
+
+PICRUSt2 requires the tree in Newick format and ASV sequences
+in FASTA format (Douglas et al., 2020, *Nature Biotechnology*).
+```{r export_picrust2}
+picrust2_dir <- file.path(project_dir, "Data/16S/picrust2_input")
+if (!dir.exists(picrust2_dir)) dir.create(picrust2_dir)
+
+# Write tree in Newick format
+write.tree(
+  ml_tree,
+  file.path(picrust2_dir, "ASV_tree.nwk")
+)
+
+# Write ASV sequences
+writeXStringSet(
+  dna_seqs,
+  file.path(picrust2_dir, "ASV_seqs.fasta")
+)
+
+# Write ASV count table (samples x ASVs) for PICRUSt2
+asv_table <- as.data.frame(t(otu_table(ps_clean)))
+write.table(
+  asv_table,
+  file.path(picrust2_dir, "ASV_table.tsv"),
+  sep       = "\t",
+  quote     = FALSE,
+  col.names = NA
+)
+
+cat("PICRUSt2 input files saved to Data/16S/picrust2_input/\n")
+cat("Files:\n")
+cat("  ASV_tree.nwk\n")
+cat("  ASV_seqs.fasta\n")
+cat("  ASV_table.tsv\n")
+```
+
+## Session Info
+```{r session_info}
+sessionInfo()
+```
+
+

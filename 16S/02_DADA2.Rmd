@@ -1,0 +1,345 @@
+---
+title: "02_DADA2"
+author: "Chloe J McGovern"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    css: "hpcstyles.css"
+    code_folding: show
+    theme: spacelab
+    highlight: pygments
+    keep_md: no
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+  keep_md: true  
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  cache      = TRUE,
+  fig.path   = "/home/cjm423/MIX-March2025/Figures/16S/02_DADA2/",
+  fig.width  = 12,
+  fig.height = 8,
+  dev        = "png",
+  dpi        = 300
+)
+```
+
+## Overview
+
+DADA2 amplicon sequence variant (ASV) inference from PacBio HiFi 
+full-length 16S rRNA gene sequences (27F/1492R). Primer-trimmed reads 
+from `01_QualityControl.Rmd` are processed through the DADA2 pipeline 
+(Callahan et al., 2016, *Nature Methods*) including quality filtering, 
+error modeling, denoising, and chimera removal.
+
+## Libraries
+```{r libraries}
+library(dada2)
+library(tidyverse)
+```
+
+## File Paths
+```{r paths}
+project_dir <- "/home/cjm423/MIX-March2025"
+
+# Input — trimmed FASTQs from 01_QualityControl
+trim_dir <- file.path(project_dir, "Data/16S/trimmed")
+
+# Output — processed data objects
+data_dir <- file.path(project_dir, "Data/16S")
+
+# Figures
+fig_dir <- file.path(project_dir, "Figures/16S/02_DADA2")
+if (!dir.exists(fig_dir)) dir.create(fig_dir, recursive = TRUE)
+
+# SILVA reference — symlinked from LPHY project
+silva_train <- "/home/cjm423/LPHY-March2025/data/16S/reference/silva_nr99_v138.1_train_set.fa.gz"
+
+# Confirm reference exists
+stopifnot(file.exists(silva_train))
+
+# List trimmed files
+trim_files <- sort(list.files(trim_dir,
+                               pattern = "\\.fastq\\.gz$",
+                               full.names = TRUE))
+
+# Sample names
+sample_names <- sub("\\.fastq\\.gz$", "", basename(trim_files))
+
+cat("Samples detected:", length(sample_names), "\n")
+print(sample_names)
+```
+
+## Sample Metadata
+```{r metadata}
+# Construct metadata for MIX caecal samples
+metadata <- data.frame(
+  sample_id  = sample_names,
+  file       = basename(trim_files),
+  group      = case_when(
+    grepl("H2O",   sample_names, ignore.case = TRUE) ~ "H2O",
+    grepl("MIX-1", sample_names, ignore.case = TRUE) ~ "MIX1",
+    grepl("MIX-2", sample_names, ignore.case = TRUE) ~ "MIX2",
+    grepl("MIX-3", sample_names, ignore.case = TRUE) ~ "MIX3"
+  ),
+  is_control = grepl("H2O", sample_names, ignore.case = TRUE),
+  tissue     = "caecum",
+  sequencer  = "PacBio_HiFi",
+  primers    = "27F_1492R_Kinnex"
+) %>%
+  mutate(
+    replicate = as.integer(str_extract(sample_id, "(?<=-)[0-9](?=\\.)")),
+  )
+
+# Verify no NA groups
+if (any(is.na(metadata$group))) {
+  warning("NA group assignments detected for: ",
+          paste(metadata$sample_id[is.na(metadata$group)], collapse = ", "))
+} else {
+  cat("All samples assigned to groups successfully\n")
+}
+
+# Save metadata
+write.csv(metadata,
+          file.path(data_dir, "MIX_metadata.csv"),
+          row.names = FALSE)
+
+print(metadata)
+```
+
+## Quality Filtering
+
+Filter and trim reads using DADA2. For PacBio HiFi full-length 16S,
+truncation is not applied since reads are already high quality and
+uniform length. We filter on `maxEE` (maximum expected errors) which
+is the recommended approach for HiFi data (Callahan et al., 2016,
+*Nature Methods*).
+
+```{r filter_trim}
+# Output paths for filtered reads
+filt_dir <- file.path(project_dir, "Data/16S/filtered")
+if (!dir.exists(filt_dir)) dir.create(filt_dir, recursive = TRUE)
+
+filt_files <- file.path(filt_dir, basename(trim_files))
+names(filt_files) <- sample_names
+
+# Filter parameters for PacBio HiFi full-length 16S — mirrors LPHY-March2025
+out <- filterAndTrim(
+  trim_files, filt_files,
+  minLen      = 1000,
+  maxLen      = 1600,
+  maxEE       = 2,
+  maxN        = 0,
+  compress    = TRUE,
+  multithread = TRUE,
+  verbose     = TRUE
+)
+
+# View filtering results
+out_df <- as.data.frame(out) %>%
+  mutate(
+    sample       = sample_names,
+    pct_retained = round(reads.out / reads.in * 100, 1)
+  ) %>%
+  select(sample, reads.in, reads.out, pct_retained)
+
+print(out_df)
+```
+
+## Error Learning
+
+DADA2 learns the error model from the data. For PacBio HiFi, error
+rates are very low and consistent, so error learning converges quickly
+(Callahan et al., 2016, *Nature Methods*).
+```{r learn_errors, fig.width=10, fig.height=6}
+# Learn error rates — use all available cores
+set.seed(100)
+err <- learnErrors(
+  filt_files,
+  multithread = TRUE,
+  errorEstimationFunction = PacBioErrfun,  # PacBio-specific error function
+  BAND_SIZE = 32,                          
+  verbose = TRUE
+)
+
+# Visualize error model — points should follow fitted line
+plotErrors(err, nominalQ = TRUE)
+```
+
+
+Black fitted curve follows the observed points (grey dots) reasonably well, with the characteristic U-shape at high Q-scores typical of HiFi CCS data. Red and black line divergence expected with PacBio sequencing. *PacBioErrfun* accounts for nonlinear error structure rather than assuming Illumina style monotonic decrease. 
+
+## Sample Inference — DADA2 Denoising
+```{r dada2_denoise}
+# Denoise each sample independently
+dada_results <- dada(
+  filt_files,
+  err         = err,
+  multithread = TRUE,
+  BAND_SIZE   = 32,
+  pool        = FALSE
+)
+
+# Summary of denoising
+dada_summary <- sapply(dada_results, function(x)
+  c(ASVs = x$denoised, reads = sum(x$denoised)))
+
+cat("Denoising summary:\n")
+print(dada_summary)
+```
+
+## Construct ASV Table
+```{r asv_table}
+# Make sequence table
+seqtab <- makeSequenceTable(dada_results)
+
+# Inspect ASV length distribution
+seq_lengths <- table(nchar(getSequences(seqtab)))
+cat("ASV length distribution:\n")
+print(seq_lengths)
+
+# Plot length distribution
+seq_len_df <- data.frame(
+  length = as.integer(names(seq_lengths)),
+  count  = as.integer(seq_lengths)
+)
+
+ggplot(seq_len_df, aes(x = length, y = count)) +
+  geom_col(fill = "violetred") +
+  labs(
+    title = "ASV Length Distribution — MIX-March2025",
+    x     = "Sequence Length (bp)",
+    y     = "Number of ASVs"
+  ) +
+  theme_bw()
+```
+
+## Remove Chimeras
+```{r chimera_removal}
+# Remove bimeric sequences
+seqtab.nochim <- removeBimeraDenovo(
+  seqtab,
+  method      = "consensus",
+  multithread = TRUE,
+  verbose     = TRUE
+)
+
+# Chimera summary
+cat("ASVs before chimera removal:", ncol(seqtab), "\n")
+cat("ASVs after chimera removal:", ncol(seqtab.nochim), "\n")
+cat("Reads retained:",
+    round(sum(seqtab.nochim) / sum(seqtab) * 100, 1), "%\n")
+
+# Save seqtab
+saveRDS(seqtab.nochim,
+        file.path(data_dir, "seqtab_nochim.rds"))
+
+# Confirm final ASV table dimensions
+dim(seqtab.nochim)  # should be 19 samples x 118 ASVs
+
+# Per-sample read depth going into decontam — this is what matters most right now
+rowSums(seqtab.nochim)
+
+# Sequence length distribution — should cluster tightly around expected full-length 16S
+table(nchar(getSequences(seqtab.nochim)))
+```
+
+## Taxonomic Assignment — SILVA r138.1
+
+Taxonomic classification using the SILVA r138.1 reference database
+(Quast et al., 2013, *Nucleic Acids Research*) with DADA2's naive
+Bayesian classifier (Wang et al., 2007, *Applied and Environmental
+Microbiology*).
+
+```{r taxonomy}
+# Assign taxonomy to genus level
+taxa <- assignTaxonomy(
+  seqtab.nochim,
+  silva_train,
+  multithread = TRUE,
+  verbose     = TRUE
+)
+
+# Save taxonomy table
+saveRDS(taxa, file.path(data_dir, "taxa.rds"))
+
+# Preview taxonomy — mask sequence rownames for readability
+taxa_preview <- taxa
+rownames(taxa_preview) <- NULL
+head(taxa_preview, 20)
+```
+
+## Read Tracking Table
+
+Track reads through every step of the pipeline — critical for QC
+and reporting (Callahan et al., 2016, *Nature Methods*).
+
+```{r read_tracking}
+source("/home/cjm423/MIX-March2025/Code/colors.R")
+
+getN <- function(x) sum(getUniques(x))
+
+track <- data.frame(
+  sample   = sample_names,
+  raw      = out_df$reads.in,
+  filtered = out_df$reads.out,
+  denoised = sapply(dada_results, getN),
+  nonchim  = rowSums(seqtab.nochim)
+) %>%
+  mutate(
+    pct_final = round(nonchim / raw * 100, 1),
+    group     = metadata$group
+  )
+
+print(track)
+
+# Save tracking table
+write.csv(track,
+          file.path(data_dir, "read_tracking.csv"),
+          row.names = FALSE)
+
+# Visualize read retention
+track_long <- track %>%
+  select(sample, group, raw, filtered, denoised, nonchim) %>%
+  pivot_longer(cols = c(raw, filtered, denoised, nonchim),
+               names_to  = "step",
+               values_to = "reads") %>%
+  mutate(step = factor(step,
+                       levels = c("raw", "filtered",
+                                  "denoised", "nonchim")))
+
+ggplot(track_long, aes(x = step, y = reads,
+                        group = sample, color = group)) +
+  geom_line(alpha = 0.7) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c(mix_colors, "H2O" = "grey60")) +
+  labs(
+    title = "Read Retention Through DADA2 Pipeline — MIX",
+    x     = "Pipeline Step",
+    y     = "Read Count",
+    color = "Group"
+  ) +
+  theme_bw()
+```
+
+MIX-3-2: 36.4% final retention despite being the highest raw depth sample (437k raw → 206k trimmed → 75k nonchim). The drop from denoised (113,834) to nonchim (75,337) is substantial — 33% of reads lost at chimera removal for this one sample alone. 
+
+MIX-3-4: 9,728 trimmed → 5,009 nonchim. Very low absolute depth — almost certainly below rarefaction threshold. Flag for notebook 05
+
+H2O-1: Only 32 nonchim reads — essentially empty, as expected for a true negative control
+
+H2O-5: 47,673 nonchim reads — confirms it carries real biological signal, reinforcing the decision to retain it through decontam
+
+## Session Info
+```{r session_info}
+sessionInfo()
+```
