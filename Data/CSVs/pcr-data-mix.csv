@@ -350,84 +350,84 @@ Liver,Mix Dose 3,5,GAPDH,20.22,21.17
 Liver,Mix Dose 3,6,GAPDH,21.97,21.83
 Liver,Mix Dose 3,7,GAPDH,20.23,20.44
 Liver,Mix Dose 3,8,GAPDH,20.67,20.46
-Liver,No Injection,1,PRAAK1,27.88,27.51
-Liver,No Injection,2,PRAAK1,26.78,25.74
-Liver,No Injection,3,PRAAK1,26.03,26.05
-Liver,No Injection,4,PRAAK1,25.41,25.73
-Liver,No Injection,5,PRAAK1,25.61,26.03
-Liver,No Injection,6,PRAAK1,25.78,25.15
-Liver,No Injection,7,PRAAK1,25.3,24.3
-Liver,No Injection,8,PRAAK1,24.99,25.75
-Liver,Water,1,PRAAK1,26.36,26.89
-Liver,Water,2,PRAAK1,26.97,26.94
-Liver,Water,3,PRAAK1,26.39,26.67
-Liver,Water,4,PRAAK1,25.43,26.1
-Liver,Water,5,PRAAK1,24.74,24.24
-Liver,Water,6,PRAAK1,25.67,25.47
-Liver,Water,7,PRAAK1,26.68,26.18
-Liver,Mix Dose 1,1,PRAAK1,26.27,26.45
-Liver,Mix Dose 1,2,PRAAK1,25.42,25.53
-Liver,Mix Dose 1,3,PRAAK1,25.73,26.08
-Liver,Mix Dose 1,4,PRAAK1,26.77,26.89
-Liver,Mix Dose 1,5,PRAAK1,26.27,27.04
-Liver,Mix Dose 1,6,PRAAK1,25.42,25.78
-Liver,Mix Dose 1,7,PRAAK1,26.62,26.95
-Liver,Mix Dose 1,8,PRAAK1,25.97,25.36
-Liver,Mix Dose 2,1,PRAAK1,25.33,25.68
-Liver,Mix Dose 2,2,PRAAK1,26.14,25.07
-Liver,Mix Dose 2,3,PRAAK1,27.1,26.8
-Liver,Mix Dose 2,4,PRAAK1,24.66,24.27
-Liver,Mix Dose 2,5,PRAAK1,26.67,26.35
-Liver,Mix Dose 2,6,PRAAK1,26.17,26.22
-Liver,Mix Dose 2,7,PRAAK1,26.89,26.49
-Liver,Mix Dose 2,8,PRAAK1,25.67,26.5
-Liver,Mix Dose 3,1,PRAAK1,25.11,25.78
-Liver,Mix Dose 3,2,PRAAK1,22.3,21.75
-Liver,Mix Dose 3,3,PRAAK1,24.02,23.12
-Liver,Mix Dose 3,4,PRAAK1,24.83,24.83
-Liver,Mix Dose 3,5,PRAAK1,25.38,25.01
-Liver,Mix Dose 3,6,PRAAK1,27.68,27.2
-Liver,Mix Dose 3,7,PRAAK1,26.11,26.62
-Liver,Mix Dose 3,8,PRAAK1,23.72,22.78
-Liver,No Injection,1,PRAAK2,28.72,29.23
-Liver,No Injection,2,PRAAK2,27.1,27.32
-Liver,No Injection,3,PRAAK2,26.29,26.75
-Liver,No Injection,4,PRAAK2,25.61,25.39
-Liver,No Injection,5,PRAAK2,25.55,25.82
-Liver,No Injection,6,PRAAK2,25.51,25.53
-Liver,No Injection,7,PRAAK2,23.95,24.98
-Liver,No Injection,8,PRAAK2,25.39,25.47
-Liver,Water,1,PRAAK2,27.94,27.98
-Liver,Water,2,PRAAK2,27.65,27.45
-Liver,Water,3,PRAAK2,27.52,27.3
-Liver,Water,4,PRAAK2,26.17,26.23
-Liver,Water,5,PRAAK2,26.87,27.05
-Liver,Water,6,PRAAK2,27.6,27.37
-Liver,Water,7,PRAAK2,27.4,27.12
-Liver,Mix Dose 1,1,PRAAK2,26.83,26.94
-Liver,Mix Dose 1,2,PRAAK2,26.22,26.07
-Liver,Mix Dose 1,3,PRAAK2,26.26,26.69
-Liver,Mix Dose 1,4,PRAAK2,28.03,28.06
-Liver,Mix Dose 1,5,PRAAK2,27.3,27.9
-Liver,Mix Dose 1,6,PRAAK2,27.78,27.77
-Liver,Mix Dose 1,7,PRAAK2,28.54,28.4
-Liver,Mix Dose 1,8,PRAAK2,26.27,26.19
-Liver,Mix Dose 2,1,PRAAK2,26.73,26.82
-Liver,Mix Dose 2,2,PRAAK2,26.04,25.93
-Liver,Mix Dose 2,3,PRAAK2,28.41,27.8
-Liver,Mix Dose 2,4,PRAAK2,25,24.93
-Liver,Mix Dose 2,5,PRAAK2,27.06,27.45
-Liver,Mix Dose 2,6,PRAAK2,26.7,26.47
-Liver,Mix Dose 2,7,PRAAK2,26.54,26.57
-Liver,Mix Dose 2,8,PRAAK2,26.44,26.58
-Liver,Mix Dose 3,1,PRAAK2,25.48,25.51
-Liver,Mix Dose 3,2,PRAAK2,24.51,24.74
-Liver,Mix Dose 3,3,PRAAK2,25.74,26.03
-Liver,Mix Dose 3,4,PRAAK2,25.8,25.67
-Liver,Mix Dose 3,5,PRAAK2,26.13,26.01
-Liver,Mix Dose 3,6,PRAAK2,27.78,28.03
-Liver,Mix Dose 3,7,PRAAK2,29.2,28.77
-Liver,Mix Dose 3,8,PRAAK2,25.92,25.75
+Liver,No Injection,1,PRKAA1,27.88,27.51
+Liver,No Injection,2,PRKAA1,26.78,25.74
+Liver,No Injection,3,PRKAA1,26.03,26.05
+Liver,No Injection,4,PRKAA1,25.41,25.73
+Liver,No Injection,5,PRKAA1,25.61,26.03
+Liver,No Injection,6,PRKAA1,25.78,25.15
+Liver,No Injection,7,PRKAA1,25.3,24.3
+Liver,No Injection,8,PRKAA1,24.99,25.75
+Liver,Water,1,PRKAA1,26.36,26.89
+Liver,Water,2,PRKAA1,26.97,26.94
+Liver,Water,3,PRKAA1,26.39,26.67
+Liver,Water,4,PRKAA1,25.43,26.1
+Liver,Water,5,PRKAA1,24.74,24.24
+Liver,Water,6,PRKAA1,25.67,25.47
+Liver,Water,7,PRKAA1,26.68,26.18
+Liver,Mix Dose 1,1,PRKAA1,26.27,26.45
+Liver,Mix Dose 1,2,PRKAA1,25.42,25.53
+Liver,Mix Dose 1,3,PRKAA1,25.73,26.08
+Liver,Mix Dose 1,4,PRKAA1,26.77,26.89
+Liver,Mix Dose 1,5,PRKAA1,26.27,27.04
+Liver,Mix Dose 1,6,PRKAA1,25.42,25.78
+Liver,Mix Dose 1,7,PRKAA1,26.62,26.95
+Liver,Mix Dose 1,8,PRKAA1,25.97,25.36
+Liver,Mix Dose 2,1,PRKAA1,25.33,25.68
+Liver,Mix Dose 2,2,PRKAA1,26.14,25.07
+Liver,Mix Dose 2,3,PRKAA1,27.1,26.8
+Liver,Mix Dose 2,4,PRKAA1,24.66,24.27
+Liver,Mix Dose 2,5,PRKAA1,26.67,26.35
+Liver,Mix Dose 2,6,PRKAA1,26.17,26.22
+Liver,Mix Dose 2,7,PRKAA1,26.89,26.49
+Liver,Mix Dose 2,8,PRKAA1,25.67,26.5
+Liver,Mix Dose 3,1,PRKAA1,25.11,25.78
+Liver,Mix Dose 3,2,PRKAA1,22.3,21.75
+Liver,Mix Dose 3,3,PRKAA1,24.02,23.12
+Liver,Mix Dose 3,4,PRKAA1,24.83,24.83
+Liver,Mix Dose 3,5,PRKAA1,25.38,25.01
+Liver,Mix Dose 3,6,PRKAA1,27.68,27.2
+Liver,Mix Dose 3,7,PRKAA1,26.11,26.62
+Liver,Mix Dose 3,8,PRKAA1,23.72,22.78
+Liver,No Injection,1,PRKAA2,28.72,29.23
+Liver,No Injection,2,PRKAA2,27.1,27.32
+Liver,No Injection,3,PRKAA2,26.29,26.75
+Liver,No Injection,4,PRKAA2,25.61,25.39
+Liver,No Injection,5,PRKAA2,25.55,25.82
+Liver,No Injection,6,PRKAA2,25.51,25.53
+Liver,No Injection,7,PRKAA2,23.95,24.98
+Liver,No Injection,8,PRKAA2,25.39,25.47
+Liver,Water,1,PRKAA2,27.94,27.98
+Liver,Water,2,PRKAA2,27.65,27.45
+Liver,Water,3,PRKAA2,27.52,27.3
+Liver,Water,4,PRKAA2,26.17,26.23
+Liver,Water,5,PRKAA2,26.87,27.05
+Liver,Water,6,PRKAA2,27.6,27.37
+Liver,Water,7,PRKAA2,27.4,27.12
+Liver,Mix Dose 1,1,PRKAA2,26.83,26.94
+Liver,Mix Dose 1,2,PRKAA2,26.22,26.07
+Liver,Mix Dose 1,3,PRKAA2,26.26,26.69
+Liver,Mix Dose 1,4,PRKAA2,28.03,28.06
+Liver,Mix Dose 1,5,PRKAA2,27.3,27.9
+Liver,Mix Dose 1,6,PRKAA2,27.78,27.77
+Liver,Mix Dose 1,7,PRKAA2,28.54,28.4
+Liver,Mix Dose 1,8,PRKAA2,26.27,26.19
+Liver,Mix Dose 2,1,PRKAA2,26.73,26.82
+Liver,Mix Dose 2,2,PRKAA2,26.04,25.93
+Liver,Mix Dose 2,3,PRKAA2,28.41,27.8
+Liver,Mix Dose 2,4,PRKAA2,25,24.93
+Liver,Mix Dose 2,5,PRKAA2,27.06,27.45
+Liver,Mix Dose 2,6,PRKAA2,26.7,26.47
+Liver,Mix Dose 2,7,PRKAA2,26.54,26.57
+Liver,Mix Dose 2,8,PRKAA2,26.44,26.58
+Liver,Mix Dose 3,1,PRKAA2,25.48,25.51
+Liver,Mix Dose 3,2,PRKAA2,24.51,24.74
+Liver,Mix Dose 3,3,PRKAA2,25.74,26.03
+Liver,Mix Dose 3,4,PRKAA2,25.8,25.67
+Liver,Mix Dose 3,5,PRKAA2,26.13,26.01
+Liver,Mix Dose 3,6,PRKAA2,27.78,28.03
+Liver,Mix Dose 3,7,PRKAA2,29.2,28.77
+Liver,Mix Dose 3,8,PRKAA2,25.92,25.75
 Liver,No Injection,1,DGAT2,32.09,32.28
 Liver,No Injection,2,DGAT2,30.83,30.92
 Liver,No Injection,3,DGAT2,31.23,31.59
