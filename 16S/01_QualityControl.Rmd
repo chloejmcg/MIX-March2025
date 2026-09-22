@@ -1,6 +1,6 @@
 ---
 title: "01_QualityControl"
-author: "Chloe J McGovern"
+author: "Chloe J. McGovern"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
   html_document:
@@ -155,7 +155,6 @@ for (i in seq_along(raw_files)) {
   )
 }
 
-cat("Trimming complete!\n")
 ```
 
 # Post Trim Analysis
@@ -178,14 +177,6 @@ plotQualityProfile(trim_files[5:9])   # MIX-1
 plotQualityProfile(trim_files[10:14]) # MIX-2
 plotQualityProfile(trim_files[15:19]) # MIX-3
 ```
-
-
-**Interpretation Notes**
-
-MIX3 group samples show lower size retention ratios compared to MIX 1 and 2. 
-Need to investigate the read count output. MIX3-4 specifically a standout in 
-low depth and a small trimmed file size. H2O sample 5 is large event when trimmed, 
-pointing towards anomalous raw depth reading. 
 
 
 ## Post Trim Read Counts and Retention
@@ -213,11 +204,6 @@ read_counts <- data.frame(
 print(read_counts)
 ```
 
-
-**Interpretation Notes**
-
-MIX 3 retention is bad. Only one sample in the 40% retention rate range. The rest are the 30% range. Since this appears to be a group level pattern, let's do some diagnostic checks to check primer trimming and checking read lengths again. 
-
 ```{r mix3_diagnostic}
 library(ShortRead)
 
@@ -244,7 +230,7 @@ rbind(
 )
 ```
 
-The read length distributions are essentially identical between MIX-3-1 and MIX-1-1 (median ~1526 bp both), so the reads themselves are fine. The problem is the primer hits. 74 primer hots across 139,000(ish) reads is marginal. Since *--discard-untrimmed* drops any read where primers aren't found, this directly explains the low retention.
+The read length distributions are essentially identical between MIX-3-1 and MIX-1-1 (median ~1526 bp both), so the reads themselves are fine. The problem is the primer hits. 74 primer hits across 139,000(ish) reads is marginal. Since *--discard-untrimmed* drops any read where primers aren't found, this directly explains the low retention.
 
 Let's compare them to Mix 1
 

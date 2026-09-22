@@ -1,0 +1,392 @@
+---
+title: "05_Phyloseq"
+author: "Chloe J McGovern"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    css: "hpcstyles.css"
+    code_folding: show
+    theme: spacelab
+    highlight: pygments
+    keep_md: no
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+  keep_md: true  
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE,
+  cache      = TRUE,
+  fig.path   = "/home/cjm423/MIX-March2025/Figures/16S/05_Phyloseq/",
+  fig.width  = 12,
+  fig.height = 8,
+  dev        = "png",
+  dpi        = 300
+)
+```
+
+## Overview
+
+Alpha and beta diversity analysis of MIX caecal microbiome data 
+following decontamination. Diversity metrics are calculated on 
+rarefied data to account for uneven sequencing depth (McMurdie & 
+Holmes, 2014, *PLOS Computational Biology*). Comparisons are made 
+between MIX treatment groups (MIX1, MIX2, MIX3).
+
+Note: MIX-3-4 (9,728 post-trim reads) is flagged as potentially 
+below rarefaction threshold — rarefaction depth will be determined 
+empirically from rarefaction curves.
+
+## Libraries
+
+```{r libraries}
+library(phyloseq)
+library(vegan)
+library(tidyverse)
+library(patchwork)
+
+source("/home/cjm423/MIX-March2025/Code/colors.R")
+
+# MIX group colors
+mix_colors
+```
+
+## Load Data
+```{r load_data}
+project_dir <- "/home/cjm423/MIX-March2025"
+data_dir    <- file.path(project_dir, "Data/16S")
+
+# Load clean phyloseq from 04_Decontam.Rmd
+ps_clean <- readRDS(file.path(data_dir, "ps_clean.rds"))
+
+cat("Clean phyloseq:\n")
+print(ps_clean)
+
+# Check sample depths
+cat("\nSample read depths:\n")
+sort(sample_sums(ps_clean))
+```
+
+## Rarefaction Curves
+
+Rarefaction curves confirm whether sequencing depth is sufficient 
+to capture community diversity (Gotelli & Colwell, 2001, 
+*Ecology Letters*). Rarefaction depth will be set at the point 
+where all retained samples reach asymptote.
+```{r rarefaction_curves}
+# Build rarefaction curve data
+rare_df <- rarecurve(
+  as.data.frame(otu_table(ps_clean)),
+  step    = 500,
+  sample  = min(sample_sums(ps_clean)),
+  label   = FALSE,
+  tidy    = TRUE
+)
+
+# Add group metadata
+sample_meta <- data.frame(sample_data(ps_clean)) %>%
+  rownames_to_column("Site")
+
+rare_df <- rare_df %>%
+  left_join(sample_meta, by = "Site")
+
+# Plot
+ggplot(rare_df, aes(x = Sample, y = Species,
+                     group = Site, color = group)) +
+  geom_line(alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  labs(
+    title = "Rarefaction Curves",
+    x     = "Reads Sampled",
+    y     = "ASVs Observed",
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(text = element_text(family = "Times New Roman", size = 14))
+
+# Check exact sample depths to inform rarefaction threshold
+sort(sample_sums(ps_clean))
+```
+
+## Rarefy
+```{r rarefy}
+# Rarefaction depth is 5009 because every curve is already flat well before 5,009 reads
+set.seed(123)
+
+ps_rare <- rarefy_even_depth(
+  ps_clean,
+  sample.size = 5009,
+  rngseed     = 123,
+  replace     = FALSE,
+  trimOTUs    = TRUE,
+  verbose     = TRUE
+)
+
+cat("\nPost-rarefaction phyloseq:\n")
+print(ps_rare)
+cat("\nSamples retained:", nsamples(ps_rare), "\n")
+cat("ASVs retained:", ntaxa(ps_rare), "\n")
+```
+
+## Alpha Diversity
+
+Alpha diversity measures within-sample diversity. Shannon entropy 
+accounts for both richness and evenness, while Observed ASVs 
+measures richness only (Hill, 1973, *Ecology*).
+```{r alpha_diversity, fig.height=10}
+# Calculate alpha diversity metrics
+rich <- estimate_richness(
+  ps_rare,
+  measures = c("Observed", "Shannon", "Simpson")
+)
+
+# Map back to original sample names via position
+meta_df <- data.frame(sample_data(ps_rare))
+
+alpha_df <- rich %>%
+  mutate(
+    sample_id = meta_df$sample_id,
+    group     = meta_df$group,
+    replicate = meta_df$replicate
+  ) %>%
+  mutate(group = factor(group, levels = c("MIX1", "MIX2", "MIX3")))
+
+print(alpha_df)
+
+# Save alpha diversity table
+write.csv(alpha_df,
+          file.path(data_dir, "alpha_diversity.csv"),
+          row.names = FALSE)
+
+# Plot observed ASVs
+p1 <- ggplot(alpha_df, aes(x = group, y = Observed, fill = group)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.8) +
+  scale_fill_manual(values = mix_colors) +
+  labs(title = "Richness", x = "Treatment", y = "ASVs") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    text = element_text(family = "Times New Roman", size = 16)
+  )
+
+# Plot Shannon diversity
+p2 <- ggplot(alpha_df, aes(x = group, y = Shannon, fill = group)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.8) +
+  scale_fill_manual(values = mix_colors) +
+  labs(title = "Shannon Diversity", x = "Treatment",
+       y = "Shannon Index") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    text = element_text(family = "Times New Roman", size = 16)
+  )
+
+# Plot Simpson diversity
+p3 <- ggplot(alpha_df, aes(x = group, y = Simpson, fill = group)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 2, alpha = 0.8) +
+  scale_fill_manual(values = mix_colors) +
+  labs(title = "Simpson Diversity", x = "Treatment",
+       y = "Simpson Index") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    text = element_text(family = "Times New Roman", size = 16)
+  )
+
+p1 + p2 + p3
+```
+
+## Alpha Diversity Statistics
+
+Kruskal-Wallis test for differences in alpha diversity between 
+treatment groups, followed by pairwise Wilcoxon tests with 
+Benjamini-Hochberg correction (Benjamini & Hochberg, 1995, 
+*Journal of the Royal Statistical Society*).
+```{r alpha_stats}
+metrics <- c("Observed", "Shannon", "Simpson")
+
+alpha_stats <- lapply(metrics, function(m) {
+  kw <- kruskal.test(reformulate("group", response = m),
+                     data = alpha_df)
+  data.frame(
+    metric  = m,
+    H       = round(kw$statistic, 3),
+    df      = kw$parameter,
+    p_value = round(kw$p.value, 4)
+  )
+}) %>% bind_rows()
+
+print(alpha_stats)
+
+# Pairwise Wilcoxon with BH correction for each metric
+for (m in metrics) {
+  cat("\nPairwise Wilcoxon —", m, ":\n")
+  print(pairwise.wilcox.test(
+    alpha_df[[m]],
+    alpha_df$group,
+    p.adjust.method = "BH"
+  ))
+}
+```
+
+## Beta Diversity — Bray-Curtis Ordination
+
+Beta diversity measures between-sample diversity. Bray-Curtis 
+dissimilarity is visualized using NMDS ordination (Clarke, 1993, 
+*Australian Journal of Ecology*).
+```{r beta_diversity_braycurtis}
+# Calculate Bray-Curtis dissimilarity
+bc_dist <- phyloseq::distance(ps_rare, method = "bray")
+
+# NMDS ordination
+set.seed(123)
+nmds_bc <- ordinate(ps_rare, method = "NMDS", distance = bc_dist)
+
+cat("NMDS stress:", nmds_bc$stress, "\n")
+
+# Plot NMDS
+plot_ordination(ps_rare, nmds_bc, color = "group") +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  stat_ellipse(aes(group = group), level = 0.95) +
+  labs(
+    title = paste0("Bray-Curtis NMDS (stress = ",
+                   round(nmds_bc$stress, 3), ")"),
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    text = element_text(family = "Times New Roman", size = 16)
+  )
+
+summary(bc_dist)
+ hist(bc_dist, breaks = 20)
+# Or as a matrix, to see the actual range
+as.matrix(bc_dist) %>% round(3)
+ 
+bc_mat <- as.matrix(bc_dist)
+
+# Pull out all pairs with distance > 0.85
+high_dist_pairs <- which(bc_mat > 0.85 & upper.tri(bc_mat), arr.ind = TRUE)
+data.frame(
+  sample1 = rownames(bc_mat)[high_dist_pairs[, 1]],
+  sample2 = colnames(bc_mat)[high_dist_pairs[, 2]],
+  distance = bc_mat[high_dist_pairs]
+) %>% arrange(desc(distance))
+
+#see if removing two outliers (n=13) changes NMDS 
+ps_no_outliers <- subset_samples(ps_rare, !(sample_names(ps_rare) %in% c("MIX-2-5.4_43", "MIX-3-2.5_37")))
+nsamples(ps_no_outliers)  # should be 13
+
+bc_dist_v2 <- phyloseq::distance(ps_no_outliers, method = "bray")
+set.seed(123)
+nmds_bc_v2 <- ordinate(ps_no_outliers, method = "NMDS", distance = bc_dist_v2)
+cat("NMDS stress (outliers excluded):", nmds_bc_v2$stress, "\n")
+
+summary(bc_dist_v2)
+hist(as.numeric(bc_dist_v2), breaks = 20)
+
+```
+
+## PERMANOVA — Bray-Curtis
+
+PERMANOVA tests whether microbial community composition differs 
+significantly between treatment groups (Anderson, 2001, 
+*Australian Ecology*).
+```{r permanova_bc}
+otu_mat <- as.data.frame(otu_table(ps_rare))
+meta_df <- data.frame(sample_data(ps_rare))
+
+set.seed(123)
+permanova_bc <- adonis2(
+  bc_dist ~ group,
+  data         = meta_df,
+  permutations = 999
+)
+
+print(permanova_bc)
+
+# Beta dispersion test
+betadisp <- betadisper(bc_dist, meta_df$group)
+permutest(betadisp, permutations = 999)
+
+
+meta_df_v2 <- as(sample_data(ps_no_outliers), "data.frame")
+
+set.seed(123)
+permanova_bc_v2 <- adonis2(bc_dist_v2 ~ group, data = meta_df_v2, permutations = 999)
+print(permanova_bc_v2)
+
+betadisp_v2 <- betadisper(bc_dist_v2, meta_df_v2$group)
+permutest(betadisp_v2, permutations = 999)
+```
+
+## Beta Diversity — PCoA
+```{r pcoa}
+pcoa_bc <- ordinate(ps_rare, method = "PCoA", distance = bc_dist)
+
+eig <- pcoa_bc$values$Eigenvalues
+var_explained <- round(eig / sum(eig) * 100, 1)
+
+plot_ordination(ps_rare, pcoa_bc, color = "group") +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  stat_ellipse(aes(group = group), level = 0.95) +
+  labs(
+    title = "Bray-Curtis PCoA",
+    x     = paste0("PC1 (", var_explained[1], "%)"),
+    y     = paste0("PC2 (", var_explained[2], "%)"),
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    text = element_text(family = "Times New Roman", size = 16)
+  )
+
+#n13 pcoa plot
+
+pcoa_bc_v2 <- ordinate(ps_no_outliers, method = "PCoA", distance = bc_dist_v2)
+eig_v2 <- pcoa_bc_v2$values$Eigenvalues
+var_explained_v2 <- round(eig_v2 / sum(eig_v2) * 100, 1)
+
+plot_ordination(ps_no_outliers, pcoa_bc_v2, color = "group") +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_manual(values = mix_colors) +
+  stat_ellipse(aes(group = group), level = 0.95) +
+  labs(
+    title = "Bray-Curtis PCoA (outliers excluded)",
+    x     = paste0("PC1 (", var_explained_v2[1], "%)"),
+    y     = paste0("PC2 (", var_explained_v2[2], "%)"),
+    color = "Treatment Group"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    text = element_text(family = "Times New Roman", size = 16)
+  )
+```
+
+## Save Rarefied Phyloseq
+```{r save_rare}
+saveRDS(ps_rare, file.path(data_dir, "ps_rare.rds"))
+cat("Rarefied phyloseq saved to Data/16S/ps_rare.rds\n")
+```
+
+## Session Info
+```{r session_info}
+sessionInfo()
+```
+
