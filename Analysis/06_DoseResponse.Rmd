@@ -1,0 +1,1035 @@
+---
+title: "Dose-Response Analysis: Histology & PCR Endpoints"
+author: "Chloe J McGovern"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    css: "styles.css"
+    toc: true
+    toc_float: true
+    toc_depth: 3
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo      = TRUE,
+  warning   = FALSE,
+  message   = FALSE,
+  fig.align = "center",
+  fig.path  = "../Figures/06_DoseResponse/"
+)
+```
+
+# Overview
+
+This analysis characterizes the linear dose-response relationship between mix
+dose (CFU/mL) and intestinal functionality outcomes using linear mixed models
+(LMM) with log10(dose) as a continuous fixed effect.
+
+**Rationale for linear model:** Exploratory analysis of group means across dose
+levels revealed no sigmoidal inflection point within the tested dose range
+(Water = 0 CFU/mL; Dose 1 = 3.2e5; Dose 2 = 3.15e6; Dose 3 = 4.1e7 CFU/mL).
+Responses were either monotonically trending or plateauing, indicating the
+tested range does not span the full dynamic range required to fit a
+4-parameter log-logistic (Hill) model. A linear dose-response on the log10 dose
+scale is therefore the most appropriate and defensible model for these data.
+
+**Dose anchoring:** The Water group (vehicle control, 0 CFU/mL) is included and
+assigned a nominal dose of 1 CFU/mL solely to permit log10 transformation.
+The No Injection group is excluded from model fitting as it is not a
+vehicle-matched control.
+
+**Model framework:**
+
+| Endpoint type | Model | Interpretation |
+|---|---|---|
+| Histology | LMM: response ~ log10(dose) + (1|bio_rep) | beta = change per 10-fold increase in dose |
+| PCR log2 fold change | LMM: log2_fc ~ log10(dose) + (1|Sample) | beta = log2FC change per 10-fold dose |
+| Cross-endpoint summary | Slope forest plot with 95% CI | Identifies most dose-sensitive endpoints |
+
+---
+
+# 1. Setup
+
+## 1.1 Packages
+
+```{r packages}
+
+#install.packages("performance")
+#nstall.packages("DHARMa")
+#install.packages("influence.ME")
+#install.packages("ggeffects")
+#install.packages("ggsignif")
+
+pacman::p_load(
+  tidyverse, lme4, lmerTest, emmeans,
+  patchwork, scales, performance, DHARMa, influence.ME, ggeffects, ggsignif, ggtext, install = FALSE
+)
+
+# Resolve namespace conflicts (MASS/car may be loaded from other Rmds)
+library(conflicted)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("rename", "dplyr")
+conflict_prefer("lmer",   "lmerTest")
+
+# Times New Roman font (Windows)
+windowsFonts("Times New Roman" = windowsFont("Times New Roman"))
+
+```
+
+## 1.2 Dose Mapping
+
+```{r dose-map}
+# Water = 1 CFU/mL (log10 offset anchor; biologically = 0 dose)
+# No Injection = NA (excluded from model fitting)
+dose_map <- tibble(
+  treatment = c("No Injection", "Water",
+                "Mix Dose 1", "Mix Dose 2", "Mix Dose 3"),
+  dose_cfu  = c(NA, 1, 4.0e5, 2.75e6, 3.2e7)
+)
+
+treatment_levels <- c("No Injection", "Water",
+                      "Mix Dose 1", "Mix Dose 2", "Mix Dose 3")
+```
+
+## 1.3 Shared Theme
+
+## 1.3 Shared Theme
+
+```{r theme}
+theme_dr <- function(base_size = 13) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      text             = element_text(family = "Times New Roman"),
+      axis.title       = element_text(face = "bold"),
+      plot.title       = element_text(face = "bold", hjust = 0.5),
+      plot.subtitle    = element_text(hjust = 0.5, color = "grey40"),
+      panel.grid.minor = element_blank(),
+      legend.position  = "none"
+    )
+}
+
+# Mix-specific treatment color palette — used by scale_color_manual() in 2.6
+treatment_colors <- c(
+  "Water"      = "#666666",
+  "Mix Dose 1" = "coral2",
+  "Mix Dose 2" = "cyan3",
+  "Mix Dose 3" = "mediumseagreen"
+)
+```
+
+## 1.4 Helper Functions
+
+```{r helpers}
+
+pfaffl_fc <- function(df, target_gene, ref_gene = "GAPDH",
+                      control_group = "Water") {
+  target_df <- df %>% dplyr::filter(Gene == target_gene)
+  ref_df    <- df %>% dplyr::filter(Gene == ref_gene)
+
+  # control-group mean Ct, computed separately for target and reference
+  t_ctrl <- target_df %>%
+    dplyr::filter(Treatment == control_group) %>%
+    summarise(m = mean(Ct, na.rm = TRUE)) %>%
+    pull(m)
+
+  r_ctrl <- ref_df %>%
+    dplyr::filter(Treatment == control_group) %>%
+    summarise(m = mean(Ct, na.rm = TRUE)) %>%
+    pull(m)
+
+  inner_join(target_df, ref_df,
+            by     = c("Sample", "Treatment"),
+            suffix = c("_target", "_ref")) %>%
+    mutate(
+      dCt_target  = t_ctrl - Ct_target,   # control - sample (target)
+      dCt_ref     = r_ctrl - Ct_ref,      # control - sample (reference)
+      fold_change = (Efficiency_target ^ dCt_target) /
+                    (Efficiency_ref    ^ dCt_ref),
+      log2_fc     = log2(fold_change)
+    )
+}
+
+# ── LMM: response ~ log10(dose) + (1|random_col) ─────────────────────────────
+fit_lmm_dose <- function(df, response_col, random_col, endpoint_label) {
+  fit_df <- df %>%
+    dplyr::filter(!is.na(dose_cfu)) %>%
+    mutate(log10_dose = log10(dose_cfu))
+  tryCatch({
+    f   <- as.formula(paste0(response_col,
+                             " ~ log10_dose + (1|", random_col, ")"))
+    fit <- lmerTest::lmer(f, data = fit_df, REML = TRUE)
+
+    if (lme4::isSingular(fit)) {
+      warning(sprintf("Singular fit for %s (Mix) — random effect variance ~0",
+                      endpoint_label))
+    }
+
+    # Extract fixed effects via base R — avoids broom.mixed rlang version conflict
+    coef_tbl  <- as.data.frame(coef(summary(fit)))
+    ci        <- confint(fit, parm = "log10_dose", method = "Wald")
+    tidy_out <- tibble(
+      term      = "log10_dose",
+      estimate  = coef_tbl["log10_dose", "Estimate"],
+      conf.low  = ci["log10_dose", "2.5 %"],
+      conf.high = ci["log10_dose", "97.5 %"],
+      p.value   = coef_tbl["log10_dose", "Pr(>|t|)"],
+      endpoint  = endpoint_label,
+      singular  = lme4::isSingular(fit),
+      converged = TRUE
+    )
+    list(model = fit, params = tidy_out,
+         converged = TRUE, label = endpoint_label)
+  }, error = function(e) {
+    warning(sprintf("LMM failed for %s (Mix): %s", endpoint_label, e$message))
+    list(converged = FALSE, label = endpoint_label)
+  })
+}
+
+# ── Population-level prediction line ──────────────────────────────────────────
+predict_lmm <- function(model_obj, dose_grid) {
+  if (!model_obj$converged) return(NULL)
+  nd   <- data.frame(log10_dose = log10(dose_grid))
+  pred <- predict(model_obj$model, newdata = nd, re.form = NA)
+  tibble(dose_cfu = dose_grid, fit = pred, label = model_obj$label)
+}
+
+# Dose grid: Water anchor (1 CFU/mL) through top of Mix Dose 3 (3.2e7 CFU/mL)
+dose_grid <- 10^seq(0, log10(5e7), length.out = 400)
+
+# ── PRE-FIT: group size sufficiency per treatment × random-effect level ──────
+check_group_sizes <- function(df, group_var = "treatment", random_var) {
+  df %>%
+    dplyr::filter(!is.na(dose_cfu)) %>%
+    dplyr::count(.data[[group_var]], .data[[random_var]]) %>%
+    dplyr::count(.data[[group_var]], name = "n_levels") %>%
+    dplyr::mutate(flag = if_else(n_levels < 3,
+                                 "LOW — check before fitting", "ok"))
+}
+
+# ── PRE-FIT: LOESS vs. linear divergence, per endpoint ────────────────────────
+check_loess_linear <- function(df, dose_col = "dose_cfu", response_col,
+                               endpoint_label) {
+  df %>%
+    dplyr::filter(!is.na(.data[[dose_col]])) %>%
+    ggplot(aes(x = log10(.data[[dose_col]]), y = .data[[response_col]])) +
+    geom_point(alpha = 0.4) +
+    geom_smooth(method = "loess", se = FALSE, color = "firebrick") +
+    geom_smooth(method = "lm",    se = FALSE, color = "steelblue",
+               linetype = "dashed") +
+    labs(title = paste0(endpoint_label, " — LOESS (red) vs linear (blue)"),
+        x = "log10(dose CFU/mL)", y = response_col) +
+    theme_dr()
+}
+
+# ── PRE-FIT: response distribution check (flag count/skewed endpoints) ───────
+check_response_distribution <- function(df, response_col, endpoint_label) {
+  df %>%
+    dplyr::filter(!is.na(dose_cfu)) %>%
+    ggplot(aes(x = .data[[response_col]])) +
+    geom_histogram(bins = 15) +
+    labs(title = paste0(endpoint_label, " — response distribution")) +
+    theme_dr()
+}
+
+# ── POST-FIT: convergence, singularity, collinearity, ICC ────────────────────
+check_lmm_fit <- function(fit) {
+  list(
+    singular    = lme4::isSingular(fit),
+    convergence = fit@optinfo$conv$opt,
+    vif         = tryCatch(performance::check_collinearity(fit),
+                           error = function(e) NA),
+    icc         = performance::icc(fit)
+  )
+}
+
+fit_lmm_dose <- function(df, response_col, random_col, endpoint_label) {
+  fit_df <- df %>%
+    dplyr::filter(!is.na(dose_cfu)) %>%
+    mutate(log10_dose = log10(dose_cfu))
+
+  # influence.ME needs the fitting data addressable by a *plain name* in
+  # .GlobalEnv, because it inspects the model's stored call and re-evaluates
+  # it verbatim. Assign a unique global object, then build the lmer call so
+  # the stored `data =` argument is the bare symbol, not an expression.
+  global_name <- paste0("fit_df_", make.names(endpoint_label))
+  assign(global_name, fit_df, envir = .GlobalEnv)
+
+  tryCatch({
+    f <- as.formula(paste0(response_col,
+                           " ~ log10_dose + (1|", random_col, ")"))
+
+    fit <- do.call(
+      lmerTest::lmer,
+      list(formula = f, data = as.name(global_name), REML = TRUE)
+    )
+
+    if (lme4::isSingular(fit)) {
+      warning(sprintf("Singular fit for %s (Mix) — random effect variance ~0",
+                      endpoint_label))
+    }
+
+    coef_tbl  <- as.data.frame(coef(summary(fit)))
+    ci        <- confint(fit, parm = "log10_dose", method = "Wald")
+    tidy_out <- tibble(
+      term      = "log10_dose",
+      estimate  = coef_tbl["log10_dose", "Estimate"],
+      conf.low  = ci["log10_dose", "2.5 %"],
+      conf.high = ci["log10_dose", "97.5 %"],
+      p.value   = coef_tbl["log10_dose", "Pr(>|t|)"],
+      endpoint  = endpoint_label,
+      singular  = lme4::isSingular(fit),
+      converged = TRUE
+    )
+    list(model = fit, params = tidy_out,
+         converged = TRUE, label = endpoint_label, data_name = global_name)
+  }, error = function(e) {
+    warning(sprintf("LMM failed for %s (Mix): %s", endpoint_label, e$message))
+    list(converged = FALSE, label = endpoint_label)
+  })
+}
+```
+
+---
+
+# 2. Histology
+
+## 2.1 Load & Prepare Data
+
+```{r histo-load}
+# What raw treatment codes actually exist in the Mix CSV?
+read.csv("Data/CSVs/mix-histology-duod.csv") %>%
+  count(treatment)
+
+mix_histo <- read.csv("Data/CSVs/mix-histology-duod.csv") %>%
+  mutate(
+    treatment = factor(treatment,
+      levels = c("1", "2", "7", "8", "9"),
+      labels = treatment_levels
+    )
+  ) %>%
+  rowwise() %>%
+  mutate(
+    width_avg = mean(c(villis_width1, villis_width2, villis_width3),
+                     na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    radius       = width_avg / 2,
+    surface_area = pi * radius^2 + 2 * pi * radius * villis_height,
+    vh_cd        = villis_height / crypt_depth
+  ) %>%
+  left_join(dose_map, by = "treatment")
+
+mix_histo <- mix_histo %>%
+  mutate(bio_rep_nested = paste(treatment, biological_rep, sep = "_"))
+
+# ── Join diagnostic — confirm dose_cfu populated for all treatment groups ────
+join_check <- mix_histo %>% count(treatment, dose_cfu)
+join_check
+
+if (any(is.na(join_check$dose_cfu) & join_check$treatment != "No Injection")) {
+  warning("dose_cfu is NA for a treatment group other than 'No Injection' — ",
+         "check dose_map$treatment matches mix_histo$treatment exactly")
+}
+```
+
+
+## 2.2 Pre and Post-Fit Diagnostics
+
+```{r histo-endpoint-table}
+histo_endpoints <- tribble(
+  ~col,            ~label,                ~unit,
+  "villis_height", "Villus Height",       "um",
+  "width_avg",     "Villus Width",        "um",
+  "surface_area",  "Villus Surface Area", "um2",
+  "crypt_depth",   "Crypt Depth",         "um",
+  "vh_cd",         "VH:CD Ratio",         "ratio",
+  "goblet_count",  "Goblet Cell Count",   "count"
+)
+```
+
+```{r histo-prefit-groupsizes}
+check_group_sizes(mix_histo, group_var = "treatment", random_var = "bio_rep_nested")
+```
+
+```{r histo-prefit-loess, fig.width = 5, fig.height = 4}
+# Run per endpoint — flag any where LOESS diverges from the linear fit
+loess_checks <- pmap(
+  histo_endpoints,
+  function(col, label, unit) check_loess_linear(mix_histo, response_col = col,
+                                                endpoint_label = label)
+)
+walk(loess_checks, print)
+```
+
+```{r histo-prefit-distribution, fig.width = 4, fig.height = 3}
+# Especially important for goblet_count (count data — check for skew/zero-inflation
+# before assuming a Gaussian LMM is appropriate)
+dist_checks <- pmap(
+  histo_endpoints,
+  function(col, label, unit) check_response_distribution(mix_histo, response_col = col,
+                                                          endpoint_label = label)
+)
+walk(dist_checks, print)
+```
+
+
+## 2.3 Fit LMMs
+
+```{r histo-fit}
+histo_models <- pmap(
+  histo_endpoints,
+  function(col, label, unit) {
+    fit_lmm_dose(mix_histo, col, "bio_rep_nested", label)   # FIXED: was "biol_rep_nested" (typo)
+  }
+) %>%
+  set_names(histo_endpoints$label)
+
+histo_params <- histo_models %>%
+  keep(~ .x$converged) %>%
+  map_dfr(~ .x$params) %>%
+  dplyr::select(endpoint, estimate, conf.low, conf.high, p.value) %>%
+  mutate(sig = case_when(
+    p.value < 0.001 ~ "***",
+    p.value < 0.01  ~ "**",
+    p.value < 0.05  ~ "*",
+    TRUE            ~ "ns"
+  ))
+
+histo_params
+```
+
+## 2.4 Post-Fit Diagnostics
+
+```{r histo-postfit-checks}
+fit_diagnostics <- histo_models %>%
+  keep(~ .x$converged) %>%
+  imap_dfr(~ {
+    d <- check_lmm_fit(.x$model)
+    tibble(endpoint = .y, singular = d$singular, convergence = d$convergence,
+          icc = d$icc$ICC_adjusted)
+  })
+
+fit_diagnostics
+```
+
+```{r histo-postfit-residuals, fig.width = 5, fig.height = 4}
+dharma_checks <- histo_models %>%
+  keep(~ .x$converged) %>%
+  imap(~ {
+    sim <- DHARMa::simulateResiduals(.x$model)
+    list(label = .y, sim = sim)
+  })
+
+walk(dharma_checks, ~ {
+  plot(.x$sim, title = .x$label)
+})
+
+DHARMa::testQuantiles(dharma_checks[["Goblet Cell Count"]]$sim)
+
+plot(dharma_checks[["Goblet Cell Count"]]$sim, 
+    form = mix_histo %>% dplyr::filter(!is.na(dose_cfu)) %>% pull(dose_cfu) %>% log10())
+```
+
+```{r histo-postfit-influence, fig.width = 5, fig.height = 4}
+influence_checks <- histo_models %>%
+  keep(~ .x$converged) %>%
+  imap(~ {
+    infl <- influence.ME::influence(.x$model, group = "bio_rep_nested")
+    plot(infl, which = "cook", main = .y)
+  })
+```
+
+## 2.5 Check Remaining Endpoints for Flagged Deviations
+
+```{r check-other-params}
+dharma_summary <- histo_models %>%
+  keep(~ .x$converged) %>%
+  imap_dfr(~ {
+    sim <- DHARMa::simulateResiduals(.x$model)
+    tibble(
+      endpoint      = .y,
+      ks_p          = DHARMa::testUniformity(sim, plot = FALSE)$p.value,
+      dispersion_p  = DHARMa::testDispersion(sim, plot = FALSE)$p.value
+    )
+  })
+
+dharma_summary
+
+check_loess_linear(mix_histo, response_col = "crypt_depth", endpoint_label = "Crypt Depth")
+
+sim_crypt <- DHARMa::simulateResiduals(histo_models[["Crypt Depth"]]$model)
+plot(sim_crypt)
+DHARMa::testQuantiles(sim_crypt)
+```
+
+## 2.6 Dose-Response Curves — Histology
+
+```{r fig-histo-dose}
+flagged_endpoints <- c("Goblet Cell Count", "Crypt Depth")
+
+histo_predictions <- histo_models %>%
+  keep(~ .x$converged) %>%
+  imap_dfr(~ {
+    pred <- ggeffects::ggpredict(.x$model, terms = "log10_dose [all]")
+    tibble(
+      log10_dose = pred$x,
+      dose_cfu   = 10^pred$x,
+      fit        = pred$predicted,
+      conf.low   = pred$conf.low,
+      conf.high  = pred$conf.high,
+      label      = .y
+    )
+  })
+
+histo_obs <- mix_histo %>%                          
+  dplyr::filter(!is.na(dose_cfu)) %>%
+  dplyr::select(treatment, dose_cfu, all_of(histo_endpoints$col)) %>%
+  pivot_longer(all_of(histo_endpoints$col), names_to = "col", values_to = "response") %>%
+  left_join(histo_endpoints, by = "col") %>%
+  mutate(log10_dose = log10(dose_cfu))
+
+# Dose values per treatment group, on the log10 scale — must match dose_map exactly
+dose_lookup <- dose_map %>%
+  dplyr::filter(!is.na(dose_cfu)) %>%
+  mutate(log10_dose = log10(dose_cfu))
+
+pairwise_sig <- histo_models %>%
+  keep(~ .x$converged) %>%
+  imap_dfr(~ {
+    emm <- emmeans::emmeans(.x$model, ~ log10_dose,
+                            at = list(log10_dose = dose_lookup$log10_dose))
+    as.data.frame(emmeans::contrast(emm, "pairwise")) %>%
+      mutate(label = .y)
+  }) %>%
+  dplyr::filter(p.value < 0.05)
+
+# emmeans labels contrasts by the numeric log10_dose values (e.g. "0 - 5.602"),
+# not treatment names — map back to readable group labels
+dose_to_treatment <- dose_lookup %>%
+  transmute(dose_str = as.character(round(log10_dose, 3)), treatment)
+
+pairwise_sig <- pairwise_sig %>%
+  separate(contrast, into = c("dose1", "dose2"), sep = " - ") %>%
+  mutate(
+    dose1 = str_trim(dose1),
+    dose2 = str_trim(dose2)
+  ) %>%
+  left_join(dose_to_treatment, by = c("dose1" = "dose_str")) %>%
+  dplyr::rename(group1 = treatment) %>%
+  left_join(dose_to_treatment, by = c("dose2" = "dose_str")) %>%
+  dplyr::rename(group2 = treatment)
+
+pairwise_sig
+
+panel_order <- c("Goblet Cell Count", "Crypt Depth", "VH:CD Ratio",
+                 "Villus Height", "Villus Surface Area", "Villus Width")
+
+unit_labels <- c(
+  "Goblet Cell Count"   = "Goblet Cell Count (n)<sup>a</sup>",
+  "Crypt Depth"         = "Crypt Depth (\u00b5m)<sup>a</sup>",
+  "VH:CD Ratio"         = "VH:CD Ratio",
+  "Villus Height"       = "Villus Height (\u00b5m)",
+  "Villus Surface Area" = "Surface Area (\u00b5m\u00b2)",
+  "Villus Width"        = "Villus Width (\u00b5m)"
+)
+
+histo_predictions <- histo_predictions %>% mutate(label = factor(label, levels = panel_order))
+histo_obs         <- histo_obs         %>% mutate(label = factor(label, levels = panel_order))
+
+p_histo_dr <- ggplot() +
+  geom_ribbon(data = histo_predictions,
+             aes(x = dose_cfu, ymin = conf.low, ymax = conf.high),
+             fill = "#3B6FA0", alpha = 0.15) +
+  geom_line(data = histo_predictions,
+           aes(x = dose_cfu, y = fit),
+           color = "#3B6FA0", linewidth = 1.0) +
+  geom_smooth(data = histo_obs %>% dplyr::filter(label %in% flagged_endpoints),
+             aes(x = dose_cfu, y = response),
+             method = "loess", se = FALSE, color = "grey40",
+             linetype = "dashed", linewidth = 0.7) +
+  geom_jitter(data = histo_obs,
+             aes(x = dose_cfu, y = response, color = treatment),
+             width = 0.04, size = 0.9, alpha = 0.45) +
+  scale_x_log10(labels = label_log(digits = 1),
+               breaks = c(1, 1e5, 1e6, 1e7)) +
+  scale_color_manual(values = treatment_colors, name = NULL) +
+  facet_wrap(~ label, scales = "free_y", ncol = 3,
+             labeller = as_labeller(unit_labels)) +
+  labs(x = "Mix Dose (CFU/mL, log scale)", y = NULL,
+      caption = "Blue line/band = LMM fit \u00b1 95% CI | Dashed grey = LOESS (flagged endpoints only)") +
+  theme_dr(base_size = 9) +
+  theme(legend.position = "bottom",
+       strip.text      = ggtext::element_markdown(face = "bold", size = 8),
+       plot.caption    = element_text(size = 7, color = "grey40"))
+
+p_histo_dr
+```
+
+
+## 2.7 Slope Summary Table
+
+```{r histo-slope-table, fig.width = 6.5, fig.height = 4.5, dpi = 300}
+histo_params %>%
+  mutate(across(c(estimate, conf.low, conf.high), ~ round(.x, 3)),
+         p.value = format.pval(p.value, digits = 3, eps = 0.001)) %>%
+  knitr::kable(
+    caption   = "LMM slope estimates for histology endpoints. Beta = change per 1-unit increase in log10(dose CFU/mL). Random effect: (1|bio_rep_nested), nested within treatment.",
+    col.names = c("Endpoint", "Beta", "95% CI low", "95% CI high",
+                  "P-value", "Sig.")
+  )
+
+histo_forest <- histo_params %>%
+  mutate(
+    sig_fill   = p.value < 0.05,
+    scale_group = if_else(endpoint == "Villus Surface Area",
+                           "Surface area", "Linear / count measures")
+  )
+
+p_forest_histo <- ggplot(histo_forest,
+                   aes(x = estimate, y = endpoint, shape = sig_fill)) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey50", linewidth = 0.6) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.3, linewidth = 0.8, color = "grey20") +
+  geom_point(size = 3.2, color = "mediumvioletred") +
+  facet_wrap(~ scale_group, scales = "free", ncol = 1) +
+  scale_shape_manual(
+    values = c("TRUE" = 19, "FALSE" = 1),
+    labels = c("TRUE" = "p < 0.05", "FALSE" = "p \u2265 0.05"),
+    name   = NULL,
+    guide  = guide_legend(override.aes = list(color = "grey40", size = 3))
+  ) +
+  labs(
+    x       = expression(beta~"(change per 1-unit increase in log"[10]*" dose CFU/mL)"),
+    y       = NULL,
+    caption = "Filled = p < 0.05 | Open = p \u2265 0.05 | Error bars = 95% CI | Random effect: (1|bio_rep_nested), nested within treatment"
+  ) +
+  theme_dr(base_size = 10) +
+  theme(
+    legend.position  = "right",
+    legend.text      = element_text(size = 8),
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.key.size  = unit(0.45, "cm"),
+    axis.text.y      = element_text(size = 9),
+    axis.text.x      = element_text(size = 8),
+    axis.title.x     = element_text(size = 9),
+    strip.text       = element_text(size = 9, face = "bold"),
+    plot.caption     = element_text(size = 7, color = "grey40",
+                                    family = "Times New Roman"),
+    plot.margin      = margin(4, 6, 4, 4, "pt")
+  )
+
+p_forest_histo
+
+```
+
+# 3. PCR for Duodenum
+
+## 3.1 Load & Compute Pfaffl Fold Change
+
+```{r pcr-load}
+mix_pcr <- read.csv("Data/CSVs/pcr-data-mix.csv")
+
+pcr_avg <- mix_pcr %>%
+  rowwise() %>%
+  mutate(Ct = mean(c_across(Rep1:Rep2), na.rm = TRUE)) %>%
+  ungroup() %>%
+  dplyr::select(Sample, Treatment, Tissue, Gene, Ct)
+
+eff_duo <- tibble(Gene       = c("GAPDH","OCLN","MUC2","TNF-alpha"),
+                  Efficiency = c(2.02, 1.93, 1.90, 1.90))
+eff_col <- tibble(Gene       = c("GAPDH","OCLN","MUC2","TNF-alpha"),
+                  Efficiency = c(1.93, 1.90, 1.96, 2.10))
+eff_liv <- tibble(Gene       = c("GAPDH","PRKAA1","PRKAA2","DGAT2","PPARg"),
+                  Efficiency = c(1.93, 2.10, 1.99, 2.1, 2.1))
+
+prep_tissue <- function(tissue_name, eff_tbl, genes_to_test) {
+  avg <- pcr_avg %>%
+    dplyr::filter(Tissue == tissue_name) %>%
+    left_join(eff_tbl, by = "Gene")
+
+  map_dfr(genes_to_test,
+          ~ pfaffl_fc(avg, .x, ref_gene = "GAPDH", control_group = "Water"),
+          .id = "GeneIndex") %>%
+    dplyr::rename(Gene = Gene_target) %>%
+    dplyr::select(-any_of("GeneIndex")) %>%
+    mutate(
+      Tissue    = tissue_name,
+      Treatment = factor(Treatment, levels = treatment_levels)
+    ) %>%
+    left_join(dose_map, by = c("Treatment" = "treatment"))
+}
+
+duo_results <- prep_tissue("Duodenum", eff_duo, c("MUC2","OCLN","TNF-alpha"))
+col_results <- prep_tissue("Colon",    eff_col, c("MUC2","OCLN","TNF-alpha"))
+liv_results <- prep_tissue("Liver",    eff_liv, c("PRKAA1","PRKAA2","DGAT2","PPARg"))
+
+pcr_all <- bind_rows(duo_results, col_results, liv_results) %>%
+  mutate(
+    endpoint_label = paste0(Gene, " (", Tissue, ")"),
+    Tissue         = factor(Tissue, levels = c("Duodenum","Colon","Liver"))
+  )
+```
+
+## 3.2 Fit LMMs — PCR
+
+```{r pcr-fit}
+pcr_endpoint_list <- pcr_all %>%
+  distinct(endpoint_label) %>%
+  pull(endpoint_label)
+
+pcr_models <- map(pcr_endpoint_list, function(ep) {
+  df <- pcr_all %>%
+    dplyr::filter(endpoint_label == ep) %>%
+    dplyr::rename(response = log2_fc)
+  fit_lmm_dose(df, "response", "Sample", ep)
+}) %>%
+  set_names(pcr_endpoint_list)
+
+pcr_params <- pcr_models %>%
+  keep(~ .x$converged) %>%
+  map_dfr(~ .x$params) %>%
+  dplyr::select(endpoint, estimate, conf.low, conf.high, p.value) %>%
+  mutate(sig = case_when(
+    p.value < 0.001 ~ "***",
+    p.value < 0.01  ~ "**",
+    p.value < 0.05  ~ "*",
+    TRUE            ~ "ns"
+  )) %>%
+  separate(endpoint, into = c("Gene","Tissue"), sep = " \\(", extra = "drop") %>%
+  mutate(Tissue = str_remove(Tissue, "\\)"),
+         Tissue = factor(Tissue, levels = c("Duodenum","Colon","Liver")))
+
+pcr_params
+```
+
+## 3.3 Dose-Response Plots — PCR
+
+```{r pcr-plot-function}
+plot_pcr_tissue <- function(tissue_name, tissue_results, tissue_models) {
+
+  eps   <- tissue_results %>% distinct(endpoint_label) %>% pull()
+  preds <- tissue_models[eps] %>%
+    keep(~ .x$converged) %>%
+    map_dfr(~ predict_lmm(.x, dose_grid))
+
+  obs_fit <- tissue_results %>%
+    dplyr::filter(!is.na(dose_cfu)) %>%
+    dplyr::select(dose_cfu, log2_fc, Treatment, endpoint_label)
+
+  obs_noinj <- tissue_results %>%
+    dplyr::filter(is.na(dose_cfu)) %>%
+    mutate(dose_plot = 0.3) %>%
+    dplyr::select(dose_plot, log2_fc, Treatment, endpoint_label)
+
+  ggplot() +
+    geom_line(
+      data = preds,
+      aes(x = dose_cfu, y = fit),
+      color = "#3B6FA0", linewidth = 1.1
+    ) +
+    geom_jitter(
+      data  = obs_fit,
+      aes(x = dose_cfu, y = log2_fc, color = Treatment),
+      width = 0.04, size = 2, alpha = 0.80
+    ) +
+    geom_jitter(
+      data  = obs_noinj,
+      aes(x = dose_plot, y = log2_fc, color = Treatment),
+      width = 0.02, size = 2, alpha = 0.55, shape = 1
+    ) +
+    geom_hline(yintercept = 0, linetype = "dotted", color = "grey50") +
+    scale_x_log10(
+      labels = label_log(digits = 1),
+      breaks = c(1, 1e5, 1e6, 1e7),
+      name   = "MIX Dose (CFU/mL, log scale)"
+    ) +
+    scale_color_manual(values = treatment_colors, name = NULL) +
+    facet_wrap(~ endpoint_label, scales = "free_y", ncol = 3) +
+    labs(
+      title    = paste(tissue_name, "Gene Expression - Linear Dose-Response (LMM)"),
+      subtitle = "Line = population fit | Dotted = log2FC 0 | Open circles = No Injection",
+      y        = "log2(Fold Change)"
+    ) +
+    theme_dr() +
+    theme(legend.position = "bottom",
+          strip.text      = element_text(face = "bold"))
+}
+```
+
+```{r pcr-dr-duo, fig.width = 10, fig.height = 4.5, dpi = 300}
+p_pcr_duo <- plot_pcr_tissue(
+  "Duodenum",
+  pcr_all %>% dplyr::filter(Tissue == "Duodenum"),
+  pcr_models
+)
+p_pcr_duo
+```
+
+```{r pcr-dr-col, fig.width = 10, fig.height = 4.5, dpi = 300}
+p_pcr_col <- plot_pcr_tissue(
+  "Colon",
+  pcr_all %>% dplyr::filter(Tissue == "Colon"),
+  pcr_models
+)
+p_pcr_col
+```
+
+```{r pcr-dr-liv, fig.width = 8, fig.height = 4.5, dpi = 300}
+p_pcr_liv <- plot_pcr_tissue(
+  "Liver",
+  pcr_all %>% dplyr::filter(Tissue == "Liver"),
+  pcr_models
+)
+p_pcr_liv
+```
+
+## 3.4 Slope Summary Table — PCR
+
+```{r pcr-slope-table}
+pcr_params %>%
+  arrange(Tissue, Gene) %>%
+  mutate(across(c(estimate, conf.low, conf.high), ~ round(.x, 4)),
+         p.value = format.pval(p.value, digits = 3, eps = 0.001)) %>%
+  knitr::kable(
+    caption   = "LMM slope estimates for PCR endpoints. Beta = change in log2(fold change) per 1-unit increase in log10(dose CFU/mL). Random effect: (1|Sample).",
+    col.names = c("Gene", "Tissue", "Beta", "95% CI low",
+                  "95% CI high", "P-value", "Sig.")
+  )
+```
+
+---
+
+# 4. Cross-Endpoint Slope Comparison
+
+```{r slope-forest, fig.width = 6.5, fig.height = 4.5, dpi = 300}
+
+category_colors <- c("Duodenum" = "#E25A2E",
+                     "Colon"    = "#3B9AB2",
+                     "Liver"    = "#78B455")
+
+pcr_forest_df <- pcr_params %>%
+  transmute(
+    Endpoint = paste0(Gene, " (", Tissue, ")"),
+    Slope    = estimate,
+    CI_lo    = conf.low,
+    CI_hi    = conf.high,
+    P        = p.value,
+    sig_fill = p.value < 0.05,
+    Category = as.character(Tissue)
+  ) %>%
+  mutate(Endpoint = factor(Endpoint, levels = Endpoint[order(Slope)]))
+
+p_forest <- ggplot(pcr_forest_df,
+                   aes(x = Slope, y = Endpoint,
+                       color = Category, shape = sig_fill)) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey50", linewidth = 0.6) +
+  geom_errorbarh(aes(xmin = CI_lo, xmax = CI_hi),
+                 height = 0.3, linewidth = 0.8) +
+  geom_point(size = 3.2) +
+  scale_color_manual(
+    values = category_colors,
+    name   = "Tissue",
+    guide  = guide_legend(override.aes = list(shape = 19, size = 3))
+  ) +
+  scale_shape_manual(
+    values = c("TRUE" = 19, "FALSE" = 1),
+    labels = c("TRUE" = "p < 0.05", "FALSE" = "p \u2265 0.05"),
+    name   = NULL,
+    guide  = guide_legend(override.aes = list(color = "grey40", size = 3))
+  ) +
+  labs(
+    x       = expression(beta~"(log"[2]*"FC per log"[10]*" CFU/mL)"),
+    y       = NULL,
+    caption = "Filled = p < 0.05 | Open = p \u2265 0.05 | Error bars = 95% CI"
+  ) +
+  theme_dr(base_size = 10) +
+  theme(
+    legend.position  = "right",
+    legend.text      = element_text(size = 8),
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.key.size  = unit(0.45, "cm"),
+    axis.text.y      = element_text(size = 9),
+    axis.text.x      = element_text(size = 8),
+    axis.title.x     = element_text(size = 9),
+    plot.caption     = element_text(size = 7, color = "grey40",
+                                    family = "Times New Roman"),
+    plot.margin      = margin(4, 6, 4, 4, "pt")
+  )
+
+p_forest
+```
+
+```{r slope-forest-liver, fig.width = 6.5, fig.height = 4.5, dpi = 300}
+category_colors <- c("Duodenum" = "deeppink4",
+                     "Colon"    = "mediumorchid4",
+                     "Liver"    = "steelblue3")
+
+pcr_forest_liver <- pcr_params %>%
+  filter(Tissue == "Liver") %>%
+  transmute(
+    Endpoint = paste0(Gene, " (", Tissue, ")"),
+    Slope    = estimate,
+    CI_lo    = conf.low,
+    CI_hi    = conf.high,
+    P        = p.value,
+    sig_fill = p.value < 0.05,
+    Category = as.character(Tissue)
+  ) %>%
+  mutate(Endpoint = factor(Endpoint, levels = Endpoint[order(Slope)]))
+
+p_forest_liver <- ggplot(pcr_forest_liver,
+                   aes(x = Slope, y = Endpoint,
+                       color = Category, shape = sig_fill)) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey50", linewidth = 0.6) +
+  geom_errorbarh(aes(xmin = CI_lo, xmax = CI_hi),
+                 height = 0.3, linewidth = 0.8) +
+  geom_point(size = 3.2) +
+  scale_color_manual(
+    values = category_colors,
+    name   = "Tissue",
+    guide  = guide_legend(override.aes = list(shape = 19, size = 3))
+  ) +
+  scale_shape_manual(
+    values = c("TRUE" = 19, "FALSE" = 1),
+    labels = c("TRUE" = "p < 0.05", "FALSE" = "p \u2265 0.05"),
+    name   = NULL,
+    guide  = guide_legend(override.aes = list(color = "grey40", size = 3))
+  ) +
+  labs(
+    x       = expression(beta~"(log"[2]*"FC per log"[10]*" CFU/mL)"),
+    y       = NULL,
+    caption = "Filled = p < 0.05 | Open = p \u2265 0.05 | Error bars = 95% CI"
+  ) +
+  theme_dr(base_size = 10) +
+  theme(
+    legend.position  = "right",
+    legend.text      = element_text(size = 8),
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.key.size  = unit(0.45, "cm"),
+    axis.text.y      = element_text(size = 9),
+    axis.text.x      = element_text(size = 8),
+    axis.title.x     = element_text(size = 9),
+    plot.caption     = element_text(size = 7, color = "grey40",
+                                    family = "Times New Roman"),
+    plot.margin      = margin(4, 6, 4, 4, "pt")
+  )
+p_forest_liver
+```
+
+```{r slope-forest-colon, fig.width = 6.5, fig.height = 4.5, dpi = 300}
+pcr_forest_colon <- pcr_params %>%
+  filter(Tissue == "Colon") %>%
+  transmute(
+    Endpoint = paste0(Gene, " (", Tissue, ")"),
+    Slope    = estimate,
+    CI_lo    = conf.low,
+    CI_hi    = conf.high,
+    P        = p.value,
+    sig_fill = p.value < 0.05,
+    Category = as.character(Tissue)
+  ) %>%
+  mutate(Endpoint = factor(Endpoint, levels = Endpoint[order(Slope)]))
+
+p_forest_colon <- ggplot(pcr_forest_colon,
+                   aes(x = Slope, y = Endpoint,
+                       color = Category, shape = sig_fill)) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey50", linewidth = 0.6) +
+  geom_errorbarh(aes(xmin = CI_lo, xmax = CI_hi),
+                 height = 0.3, linewidth = 0.8) +
+  geom_point(size = 3.2) +
+  scale_color_manual(
+    values = category_colors,
+    name   = "Tissue",
+    guide  = guide_legend(override.aes = list(shape = 19, size = 3))
+  ) +
+  scale_shape_manual(
+    values = c("TRUE" = 19, "FALSE" = 1),
+    labels = c("TRUE" = "p < 0.05", "FALSE" = "p \u2265 0.05"),
+    name   = NULL,
+    guide  = guide_legend(override.aes = list(color = "grey40", size = 3))
+  ) +
+  labs(
+    x       = expression(beta~"(log"[2]*"FC per log"[10]*" CFU/mL)"),
+    y       = NULL,
+    caption = "Filled = p < 0.05 | Open = p \u2265 0.05 | Error bars = 95% CI"
+  ) +
+  theme_dr(base_size = 10) +
+  theme(
+    legend.position  = "right",
+    legend.text      = element_text(size = 8),
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.key.size  = unit(0.45, "cm"),
+    axis.text.y      = element_text(size = 9),
+    axis.text.x      = element_text(size = 8),
+    axis.title.x     = element_text(size = 9),
+    plot.caption     = element_text(size = 7, color = "grey40",
+                                    family = "Times New Roman"),
+    plot.margin      = margin(4, 6, 4, 4, "pt")
+  )
+p_forest_colon
+```
+
+```{r slope-forest-duodenum, fig.width = 6.5, fig.height = 4.5, dpi = 300}
+pcr_forest_duodenum <- pcr_params %>%
+  filter(Tissue == "Duodenum") %>%
+  transmute(
+    Endpoint = paste0(Gene, " (", Tissue, ")"),
+    Slope    = estimate,
+    CI_lo    = conf.low,
+    CI_hi    = conf.high,
+    P        = p.value,
+    sig_fill = p.value < 0.05,
+    Category = as.character(Tissue)
+  ) %>%
+  mutate(Endpoint = factor(Endpoint, levels = Endpoint[order(Slope)]))
+
+p_forest_duodenum <- ggplot(pcr_forest_duodenum,
+                   aes(x = Slope, y = Endpoint,
+                       color = Category, shape = sig_fill)) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "grey50", linewidth = 0.6) +
+  geom_errorbarh(aes(xmin = CI_lo, xmax = CI_hi),
+                 height = 0.3, linewidth = 0.8) +
+  geom_point(size = 3.2) +
+  scale_color_manual(
+    values = category_colors,
+    name   = "Tissue",
+    guide  = guide_legend(override.aes = list(shape = 19, size = 3))
+  ) +
+  scale_shape_manual(
+    values = c("TRUE" = 19, "FALSE" = 1),
+    labels = c("TRUE" = "p < 0.05", "FALSE" = "p \u2265 0.05"),
+    name   = NULL,
+    guide  = guide_legend(override.aes = list(color = "grey40", size = 3))
+  ) +
+  labs(
+    x       = expression(beta~"(log"[2]*"FC per log"[10]*" CFU/mL)"),
+    y       = NULL,
+    caption = "Filled = p < 0.05 | Open = p \u2265 0.05 | Error bars = 95% CI"
+  ) +
+  theme_dr(base_size = 10) +
+  theme(
+    legend.position  = "right",
+    legend.text      = element_text(size = 8),
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.key.size  = unit(0.45, "cm"),
+    axis.text.y      = element_text(size = 9),
+    axis.text.x      = element_text(size = 8),
+    axis.title.x     = element_text(size = 9),
+    plot.caption     = element_text(size = 7, color = "grey40",
+                                    family = "Times New Roman"),
+    plot.margin      = margin(4, 6, 4, 4, "pt")
+  )
+p_forest_duodenum
+```
+
+
